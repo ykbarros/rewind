@@ -1,0 +1,2307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rewind &mdash; Guess the Year</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0d0e16">
+<meta name="description" content="Rewind: hear a song, guess when it came out, build your timeline. K-Pop and USA hits, on one phone or with everyone on their own.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d0e16'/%3E%3Ccircle cx='32' cy='32' r='22' fill='%2322232c'/%3E%3Ccircle cx='32' cy='32' r='15' fill='none' stroke='%2315161d' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='8' fill='%23ff4fa0'/%3E%3Ccircle cx='32' cy='32' r='2' fill='%230d0e16'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --ground:#0d0e16;
+    --panel:#171a2b;
+    --panel-2:#1f2438;
+    --line:rgba(255,255,255,.10);
+    --ink:#f4f5fb;
+    --ink-dim:#a7adc6;
+    --ink-faint:#6b7192;
+    --good:#25c281;
+    --miss:#ff6a5a;
+    --m-kpop:#ff4fa0;
+    --m-usa:#4d8dff;
+    --accent:#9b6bff;
+    --accent-ink:#0d0e16;
+    --display:"Arial Black","Helvetica Neue Bold","Helvetica Neue",Helvetica,Arial,sans-serif;
+    --body:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%}
+  body{
+    background:var(--ground);color:var(--ink);font-family:var(--body);
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overflow-x:hidden;
+    -webkit-tap-highlight-color:transparent;
+  }
+  body[data-mode="kpop"]{--accent:var(--m-kpop)}
+  body[data-mode="usa"]{--accent:var(--m-usa)}
+  button{font-family:inherit;cursor:pointer;border:0;color:inherit;background:none;font-size:inherit}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:14px}
+  input{font-family:inherit}
+  a{color:inherit}
+
+  .app{max-width:540px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;
+    padding:max(16px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom));position:relative}
+  .flood{position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:
+      radial-gradient(120% 70% at 50% -12%, color-mix(in srgb,var(--accent) 38%, transparent), transparent 70%),
+      linear-gradient(180deg, color-mix(in srgb,var(--accent) 9%, var(--ground)), var(--ground) 60%);
+    transition:background .4s ease}
+  .screen{flex:1;display:flex;flex-direction:column;gap:14px;animation:rise .28s ease both}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* type */
+  .display{font-family:var(--display);font-weight:900;text-transform:uppercase;letter-spacing:-.03em;line-height:.9}
+  .eyebrow{color:var(--ink-faint);font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700}
+  .dim{color:var(--ink-dim)}
+  .faint{color:var(--ink-faint)}
+  .center{text-align:center}
+  .small{font-size:13px}
+  h2{margin:0}
+
+  /* brand */
+  .brand{padding:10px 2px 4px}
+  .brand h1{font-family:var(--display);font-weight:900;margin:0;line-height:.86;font-size:clamp(56px,19vw,92px);letter-spacing:-.05em;text-transform:uppercase}
+  .brand h1 i{font-style:normal;color:var(--m-kpop)}
+  .brand .ko{font-size:15px;color:var(--ink-dim);margin-top:10px}
+
+  /* mode cards */
+  .modes{display:flex;flex-direction:column;gap:12px}
+  .mode{position:relative;overflow:hidden;border-radius:22px;padding:18px 18px 18px 22px;background:var(--panel);
+    border:1px solid var(--line);text-align:left;display:flex;flex-direction:column;gap:6px;
+    transition:transform .12s ease}
+  .mode:active{transform:scale(.98)}
+  .mode .swatch{position:absolute;inset:0 auto 0 0;width:7px;background:var(--mc)}
+  .mode .blob{position:absolute;top:-50px;right:-40px;width:150px;height:150px;border-radius:50%;background:var(--mc);opacity:.16;filter:blur(6px)}
+  .mode .name{font-family:var(--display);font-weight:900;font-size:30px;letter-spacing:-.03em;text-transform:uppercase;color:var(--mc);position:relative;line-height:1}
+  .mode .pitch{position:relative;color:var(--ink);font-size:15px;line-height:1.35}
+  .mode .meta{position:relative;display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+  .pill{font-size:11.5px;font-weight:700;letter-spacing:.04em;padding:4px 9px;border-radius:999px;background:var(--panel-2);color:var(--ink-dim);border:1px solid var(--line)}
+
+  /* buttons */
+  .cta{width:100%;padding:18px;border-radius:20px;background:var(--accent);color:var(--accent-ink);
+    font-family:var(--display);font-weight:900;font-size:19px;letter-spacing:.02em;text-transform:uppercase;text-align:center;text-decoration:none;display:block;
+    box-shadow:0 12px 30px -12px color-mix(in srgb,var(--accent) 75%,transparent);transition:transform .1s ease}
+  .cta:active{transform:translateY(2px) scale(.99)}
+  .cta.alt{background:var(--panel);color:var(--ink);border:1px solid var(--line);box-shadow:none}
+  .cta .sub{display:block;font-family:var(--body);font-weight:600;text-transform:none;letter-spacing:0;font-size:13px;opacity:.75;margin-top:4px}
+  .ghost{padding:10px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink-dim);font-weight:700;font-size:13px}
+  .ghost:active{transform:scale(.96)}
+  .ghost.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+  .link{color:var(--accent);font-weight:700;font-size:14px;padding:6px 2px}
+  .row{display:flex;gap:10px;align-items:center}
+  .row.wrap{flex-wrap:wrap}
+  .grow{flex:1}
+  .stack{display:flex;flex-direction:column;gap:10px}
+  .bottom{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:12px}
+  .topback{align-self:flex-start;color:var(--ink-dim);font-weight:700;font-size:14px;padding:6px 2px}
+
+  .seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px;gap:2px;flex-wrap:wrap}
+  .seg button{padding:8px 13px;border-radius:999px;font-weight:700;font-size:14px;color:var(--ink-dim);font-variant-numeric:tabular-nums}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+
+  /* panels */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:16px}
+  .card.tint{background:color-mix(in srgb,var(--accent) 10%,var(--panel));border-color:color-mix(in srgb,var(--accent) 30%,transparent)}
+  .rules{margin:0;padding:0;list-style:none;counter-reset:r;display:flex;flex-direction:column;gap:12px}
+  .rules li{counter-increment:r;display:grid;grid-template-columns:30px 1fr;gap:10px;line-height:1.4;font-size:15px}
+  .rules li::before{content:counter(r);width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--accent-ink);
+    font-family:var(--display);font-weight:900;font-size:14px;display:flex;align-items:center;justify-content:center}
+  .steps li{font-size:14px}
+  .musiccard{display:flex;align-items:center;gap:12px;text-align:left;width:100%}
+  .musiccard .ic{font-size:24px}
+  .musiccard b{display:block;font-size:15px}
+
+  /* inputs */
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);font-weight:700}
+  .inp{width:100%;padding:15px 16px;border-radius:16px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:17px}
+  .inp:focus{outline:none;border-color:var(--accent)}
+  .inp.code{font-family:var(--display);font-size:34px;letter-spacing:.3em;text-transform:uppercase;text-align:center;padding:12px}
+  .err{color:var(--miss);font-size:14px;font-weight:600}
+  .ok-t{color:var(--good);font-size:14px;font-weight:700}
+
+  /* players */
+  .plist{display:flex;flex-direction:column;gap:8px}
+  .p{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:14px;background:var(--panel);border:1px solid var(--line);font-weight:700}
+  .p .dot{width:9px;height:9px;border-radius:50%;background:var(--good);flex:none}
+  .p .dot.off{background:var(--ink-faint)}
+  .p .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .p .you{color:var(--ink-faint);font-weight:600;font-size:12px}
+  .p .x,.x{color:var(--ink-faint);font-size:20px;line-height:1;padding:0 4px}
+  .teambadge{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:5px 9px;border-radius:999px;border:1px solid var(--line)}
+  .t0{color:#ffb14a;background:rgba(255,177,74,.12)}
+  .t1{color:#6fd3ff;background:rgba(111,211,255,.12)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{padding:10px 14px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line);font-weight:700;font-size:15px}
+  .chip[aria-pressed="true"],.chip.pick{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+  .chip b{font-family:var(--display);margin-left:4px}
+
+  /* game top bar */
+  .gtop{display:flex;align-items:center;gap:8px}
+  .mchip{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:15px;color:var(--accent);letter-spacing:-.01em}
+  .gtop .info{flex:1;color:var(--ink-dim);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .icon-btn{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--panel);font-weight:900;color:var(--ink-dim);font-size:16px;flex:none}
+  .turn .eyebrow{margin-bottom:4px}
+  .capname{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:clamp(28px,9vw,40px);line-height:.95;letter-spacing:-.02em;color:var(--accent);word-break:break-word}
+
+  .hint{margin:0;color:var(--ink-dim);font-size:15px;line-height:1.45}
+  .hint b{color:var(--ink)}
+  .wait{display:flex;align-items:center;gap:10px;justify-content:center;color:var(--ink-dim);font-weight:700;font-size:15px;padding:14px;text-align:center}
+  .wait::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--accent);animation:pulse 1.1s ease-in-out infinite;flex:none}
+  @keyframes pulse{50%{opacity:.25;transform:scale(.7)}}
+
+  /* the song stage: YouTube player under a cover until the reveal */
+  .stage{position:relative;width:100%;aspect-ratio:16/9;border-radius:22px;background:#05060c;border:1px solid var(--line);overflow:hidden}
+  .stage.mini{aspect-ratio:auto;height:150px}
+  #ytbox{position:absolute;z-index:3;left:-9999px;top:0;width:320px;height:180px;border-radius:22px;overflow:hidden;background:#000}
+  #ytbox:not(.show){left:-9999px!important;top:0!important}
+  #ytbox iframe,#ythost{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .cover{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:40px 16px 22px;text-align:center;
+    background:radial-gradient(110% 95% at 50% 0%,color-mix(in srgb,var(--accent) 38%,#0d0e16),#0d0e16 80%)}
+  .cover.off{display:none}
+  .ctop{position:absolute;top:10px;left:14px;right:10px;display:flex;align-items:center;gap:8px;min-height:32px}
+  .ctop .eyebrow{flex:1;text-align:left;color:var(--ink-dim)}
+  .ctime{font-size:12px;font-weight:800;color:var(--ink-dim);font-variant-numeric:tabular-nums}
+  .cre{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.08);font-weight:900;color:var(--ink)}
+  .vbtn{position:relative;width:88px;height:88px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .vinyl{position:absolute;inset:0;border-radius:50%;
+    background:radial-gradient(circle,var(--accent) 0 25%,#0d0e16 26% 28%,transparent 29%),repeating-radial-gradient(circle,#15161d 0 2px,#23242d 2px 4px);
+    box-shadow:0 12px 28px -10px #000,0 0 0 2px rgba(255,255,255,.06)}
+  .vinyl.spin{animation:spin 2.2s linear infinite}
+  .vbtn .vl{position:relative;display:flex;color:var(--accent-ink)}
+  .vbtn .vl svg{width:24px;height:24px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion: reduce){.vinyl.spin,.flipic.wob{animation:none}}
+  .cmsg{font-weight:800;font-size:16px;max-width:28ch;line-height:1.3}
+  .csub{color:var(--ink-dim);font-size:13px;font-weight:600;max-width:32ch;line-height:1.35}
+  .cbar{position:absolute;left:14px;right:14px;bottom:10px;height:5px;border-radius:9px;background:rgba(255,255,255,.14);overflow:hidden}
+  .cbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s linear}
+  .flipic{width:58px;height:58px;color:var(--accent)}
+  .flipic.wob{animation:wob 2.4s ease-in-out infinite}
+  @keyframes wob{0%,60%,100%{transform:rotate(0)}20%{transform:rotate(-14deg)}40%{transform:rotate(10deg)}}
+  .minibar{display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px;border-radius:16px;background:var(--panel);border:1px solid var(--line)}
+  .minibar .t{flex:1;min-width:0;font-weight:800;font-size:14px}
+  .minibar .t small{display:block;color:var(--ink-dim);font-weight:700;font-size:12px;font-variant-numeric:tabular-nums}
+  .minibar button{width:40px;height:40px;border-radius:50%;background:var(--panel-2);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+  .minibar button svg{width:18px;height:18px}
+
+  /* timeline */
+  .tl{display:flex;flex-direction:column}
+  .end{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);font-weight:800;text-align:center;padding:2px}
+  .tc{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:14px;background:var(--panel);border:1px solid var(--line);margin:2px 0}
+  .tc .yr{font-family:var(--display);font-size:21px;min-width:58px;color:var(--accent);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .tc .who{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .tc .ti{font-weight:800;font-size:15px;line-height:1.2;overflow-wrap:anywhere}
+  .tc .ar{color:var(--ink-dim);font-size:12.5px;font-weight:600;overflow-wrap:anywhere}
+  .tc .tag{font-weight:900;font-size:16px;flex:none}
+  .tc.good{border-color:color-mix(in srgb,var(--good) 60%,transparent);background:color-mix(in srgb,var(--good) 12%,var(--panel))}
+  .tc.bad{border-color:color-mix(in srgb,var(--miss) 60%,transparent);background:color-mix(in srgb,var(--miss) 12%,var(--panel))}
+  .tc.bad .yr{color:var(--miss)}
+  .tc.bonus{border-color:var(--accent)}
+  .tc.mys{border:2px dashed var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--panel))}
+  .tg{display:flex;align-items:center;gap:10px;width:100%;min-height:42px;padding:0 4px;color:var(--accent);font-weight:800;font-size:13px;border-radius:12px}
+  .tg::before,.tg::after{content:"";flex:1;border-top:2px dashed color-mix(in srgb,var(--accent) 45%,transparent)}
+  .tg:active{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+
+  /* sticky action area */
+  .dock{position:sticky;bottom:0;z-index:4;margin-top:auto;display:flex;flex-direction:column;gap:8px;padding:16px 0 max(2px,env(safe-area-inset-bottom));
+    background:linear-gradient(to bottom,transparent,var(--ground) 24%)}
+  .yearcall{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:6px 8px 6px 14px}
+  .step{width:44px;height:44px;border-radius:12px;background:var(--panel-2);font-size:22px;font-weight:900;flex:none}
+  .inp.yr{width:92px;flex:none;text-align:center;font-family:var(--display);font-size:22px;padding:8px}
+
+  /* reveal */
+  .reveal{border-radius:22px;padding:16px 18px;background:var(--panel);border:2px solid var(--line);display:grid;grid-template-columns:auto 1fr;column-gap:14px;align-items:center}
+  .reveal .ryear{grid-row:span 2;font-family:var(--display);font-size:46px;line-height:1;color:var(--accent);letter-spacing:-.03em}
+  .reveal .rt{font-weight:900;font-size:19px;line-height:1.15;overflow-wrap:anywhere}
+  .reveal .ra{color:var(--ink-dim);font-weight:700;font-size:14px;overflow-wrap:anywhere}
+  .reveal.ok{border-color:color-mix(in srgb,var(--good) 60%,transparent)}
+  .reveal.bad{border-color:color-mix(in srgb,var(--miss) 60%,transparent)}
+  .banner{border-radius:20px;padding:14px 16px;text-align:center;font-weight:800;font-size:16px}
+  .banner.good{background:color-mix(in srgb,var(--good) 16%,var(--panel));color:var(--good)}
+  .banner.bad{background:color-mix(in srgb,var(--miss) 14%,var(--panel));color:var(--miss)}
+  .banner.neutral{background:var(--panel);color:var(--ink)}
+  .banner .big{display:block;font-family:var(--display);font-size:34px;line-height:1;margin-bottom:4px;text-transform:uppercase;letter-spacing:-.02em}
+  .standing{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:var(--panel);border:1px solid var(--line);font-weight:700}
+  .standing .n{font-family:var(--display);width:26px;color:var(--ink-faint)}
+  .standing .v{font-family:var(--display);font-size:20px;color:var(--accent)}
+  .standing.win{border-color:var(--accent)}
+
+  /* sheet */
+  .sheet{position:fixed;inset:0;background:rgba(5,6,12,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:30;display:flex;align-items:flex-end;justify-content:center;animation:fade .2s ease both}
+  .sheet .in{width:100%;max-width:540px;max-height:88dvh;overflow:auto;background:var(--ground);border:1px solid var(--line);border-bottom:0;border-radius:26px 26px 0 0;padding:20px 18px max(22px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;animation:up .25s ease both}
+  @keyframes fade{from{opacity:0}}
+  @keyframes up{from{transform:translateY(30px)}}
+  .toast{position:fixed;left:50%;bottom:max(24px,env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--ground);padding:11px 18px;border-radius:999px;font-weight:700;font-size:14px;z-index:40;animation:rise .2s ease both;max-width:90vw;text-align:center}
+  .netbar{background:color-mix(in srgb,var(--miss) 18%,var(--panel));color:var(--ink);border:1px solid color-mix(in srgb,var(--miss) 45%,transparent);border-radius:14px;padding:10px 12px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px}
+  .alt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;width:100%;padding:12px 14px;border-radius:14px;background:var(--panel);border:1px solid var(--line);font-weight:700;font-size:14px}
+  .alt small{color:var(--ink-dim);font-weight:600}
+  .alt.cur{border-color:var(--accent)}
+
+  .confetti{position:fixed;inset:0;pointer-events:none;z-index:50}
+  .room-code{font-family:var(--display);font-size:clamp(54px,18vw,80px);letter-spacing:.14em;line-height:1;color:var(--accent);text-align:center}
+  hr.sep{border:0;border-top:1px solid var(--line);margin:4px 0;width:100%}
+</style>
+</head>
+<body>
+<div class="flood"></div>
+<main class="app" id="app"></main>
+<div id="ytbox"><div id="ythost"></div><div class="cover" id="ytcover"></div></div>
+<div id="layer"></div>
+<script>
+/* ---------- SONGS ----------
+   One song per line: "year|Artist|Title"
+   The year is when that version of the song first came out (album or single, whichever was first).
+   An optional 4th field overrides the YouTube search, e.g. "1992|Artist|Title|artist title official audio". */
+const SONGS = {};
+SONGS.kpop = `1976|Cho Yong-pil|Come Back to Busan Port (돌아와요 부산항에)
+1979|Cho Yong-pil|Short Hair (단발머리)
+1982|Yoon Soo-il|Apartment (아파트)
+1984|Lee Sun-hee|To J (J에게)
+1985|Deulgukhwa|That's My World (그것만이 내 세상)
+1990|Kim Wan-sun|Pierrot Smiles at Us (삐에로는 우릴 보고 웃지)
+1992|Seo Taiji and Boys|Nan Arayo (난 알아요)
+1993|Seo Taiji and Boys|Hayeoga (하여가)
+1994|Seo Taiji and Boys|Classroom Idea (교실 이데아)
+1995|Seo Taiji and Boys|Come Back Home
+1993|Kim Gun-mo|Excuse (핑계)
+1995|Kim Gun-mo|Wrongful Encounter (잘못된 만남)
+1994|Deux|In the Summer (여름 안에서)
+1995|Roo'Ra|Angel Who Lost Wings (날개 잃은 천사)
+1996|Clon|Kung Ddari Sha Bah Rah (꿍따리 샤바라)
+1996|H.O.T.|Candy
+1996|H.O.T.|Warrior's Descendant (전사의 후예)
+1997|H.O.T.|We Are the Future
+1999|H.O.T.|I Yah! (아이야!)
+1997|S.E.S.|I'm Your Girl
+1998|S.E.S.|Dreams Come True
+1999|S.E.S.|Love
+1997|Cool|Woman on the Beach (해변의 여인)
+1998|Sechs Kies|Couple (커플)
+1998|Fin.K.L|To My Boyfriend (내 남자친구에게)
+1999|Fin.K.L|Eternal Love (영원한 사랑)
+2000|Fin.K.L|Now
+1998|Yoo Seung-jun|Na Na Na
+1998|Uhm Jung-hwa|Poison
+1999|Uhm Jung-hwa|Festival
+1999|Lee Jung-hyun|Wa (와)
+1998|Koyote|Pure Love (순정)
+1999|Baby V.O.X.|Get Up
+1999|g.o.d|To Mother (어머님께)
+2000|g.o.d|Lies (거짓말)
+2001|g.o.d|Road (길)
+1999|Shinhwa|T.O.P.
+2001|Shinhwa|Wild Eyes
+2002|Shinhwa|Perfect Man
+2004|Shinhwa|Brand New
+2000|DJ DOC|Run to You
+2000|Park Ji-yoon|Coming of Age Ceremony (성인식)
+2001|Shin Seung-hun|I Believe
+2002|BoA|No.1
+2003|BoA|Atlantis Princess (아틀란티스 소녀)
+2004|BoA|My Name
+2002|PSY|Champion
+2002|Rain|Bad Guy (나쁜 남자)
+2004|Rain|It's Raining
+2008|Rain|Rainism
+2003|Lee Hyori|10 Minutes
+2005|Lee Hyori|Get Ya
+2008|Lee Hyori|U-Go-Girl
+2003|Se7en|Come Back to Me (와줘)
+2004|SG Wannabe|Timeless
+2004|Lee Seung-gi|Because You're My Woman (내 여자라니까)
+2004|Jang Yoon-jeong|Eomeona (어머나)
+2004|TVXQ|Hug
+2005|TVXQ|Rising Sun
+2006|TVXQ|O-Jung.Ban.Hap.
+2008|TVXQ|Mirotic (주문)
+2005|Buzz|Coward (겁쟁이)
+2005|Epik High|Fly
+2005|Jewelry|Superstar
+2005|Super Junior|Twins (Knock Out)
+2006|Super Junior|U
+2009|Super Junior|Sorry, Sorry
+2011|Super Junior|Mr. Simple
+2007|Wonder Girls|Tell Me
+2008|Wonder Girls|So Hot
+2008|Wonder Girls|Nobody
+2007|BIGBANG|Lies (거짓말)
+2007|BIGBANG|Last Farewell (마지막 인사)
+2008|BIGBANG|Haru Haru (하루하루)
+2012|BIGBANG|Fantastic Baby
+2015|BIGBANG|Bang Bang Bang
+2015|BIGBANG|Loser
+2007|Girls' Generation|Into the New World (다시 만난 세계)
+2009|Girls' Generation|Gee
+2009|Girls' Generation|Genie (소원을 말해봐)
+2010|Girls' Generation|Oh!
+2011|Girls' Generation|The Boys
+2013|Girls' Generation|I Got a Boy
+2008|Davichi|Love and War (사랑과 전쟁)
+2008|SHINee|Replay (누난 너무 예뻐)
+2009|SHINee|Ring Ding Dong
+2010|SHINee|Lucifer
+2012|SHINee|Sherlock (셜록)
+2015|SHINee|View
+2009|Kara|Mister
+2010|Kara|Lupin
+2009|2NE1|Fire
+2009|2NE1|I Don't Care
+2011|2NE1|I Am the Best (내가 제일 잘 나가)
+2011|2NE1|Lonely
+2009|Brown Eyed Girls|Abracadabra
+2009|T-ara|Bo Peep Bo Peep
+2011|T-ara|Roly-Poly
+2009|After School|Because of You
+2009|2PM|Again & Again
+2009|4minute|Hot Issue
+2009|Son Dam-bi|Saturday Night
+2009|G-Dragon|Heartbreaker
+2009|Taeyang|Wedding Dress
+2014|Taeyang|Eyes, Nose, Lips (눈, 코, 입)
+2010|IU|Good Day (좋은 날)
+2011|IU|You and I (너랑 나)
+2017|IU|Palette (feat. G-Dragon)
+2017|IU|Through the Night (밤편지)
+2019|IU|Blueming
+2021|IU|Celebrity
+2024|IU|Love wins all
+2010|miss A|Bad Girl Good Girl
+2010|CNBLUE|I'm a Loner (외톨이야)
+2010|f(x)|Nu ABO
+2011|f(x)|Hot Summer
+2012|f(x)|Electric Shock
+2011|Beast|Fiction
+2011|HyunA|Bubble Pop!
+2012|Sistar|Alone
+2014|Sistar|Touch My Body
+2012|PSY|Gangnam Style
+2013|PSY|Gentleman
+2022|PSY|That That (feat. SUGA)
+2012|Busker Busker|Cherry Blossom Ending (벚꽃 엔딩)
+2012|Infinite|The Chaser
+2012|Ailee|Heaven
+2012|Lee Hi|1, 2, 3, 4
+2013|EXO|Growl (으르렁)
+2014|EXO|Overdose (중독)
+2015|EXO|Call Me Baby
+2017|EXO|Ko Ko Bop
+2018|EXO|Love Shot
+2013|Crayon Pop|Bar Bar Bar (빠빠빠)
+2013|Roy Kim|Spring Spring Spring (봄봄봄)
+2013|Cho Yong-pil|Bounce
+2013|BTS|No More Dream
+2015|BTS|I Need U
+2016|BTS|Fire (불타오르네)
+2016|BTS|Blood Sweat & Tears (피 땀 눈물)
+2017|BTS|Spring Day (봄날)
+2017|BTS|DNA
+2018|BTS|Fake Love
+2018|BTS|Idol
+2019|BTS|Boy With Luv (작은 것들을 위한 시)
+2020|BTS|Dynamite
+2021|BTS|Butter
+2013|Apink|NoNoNo
+2014|Apink|Mr. Chu
+2014|Soyou & Junggigo|Some (썸)
+2014|EXID|Up & Down (위아래)
+2014|Zion.T|Yanghwa Bridge (양화대교)
+2014|Hyukoh|Wi Ing Wi Ing (위잉위잉)
+2014|Akdong Musician|200%
+2019|AKMU|How Can I Love the Heartbreak, You're the One I Love
+2014|Winner|Empty
+2017|Winner|Really Really
+2014|Red Velvet|Happiness (행복)
+2015|Red Velvet|Ice Cream Cake
+2015|Red Velvet|Dumb Dumb
+2017|Red Velvet|Red Flavor (빨간 맛)
+2019|Red Velvet|Psycho
+2022|Red Velvet|Feel My Rhythm
+2014|Mamamoo|Mr. Ambiguous (Mr.애매모호)
+2018|Mamamoo|Starry Night (별이 빛나는 밤)
+2019|Mamamoo|HIP
+2015|Taeyeon|I
+2017|Taeyeon|Fine
+2015|GFRIEND|Me Gustas Tu (오늘부터 우리는)
+2016|GFRIEND|Rough (시간을 달려서)
+2015|TWICE|Like Ooh-Ahh (OOH-AHH하게)
+2016|TWICE|Cheer Up
+2016|TWICE|TT
+2017|TWICE|Likey
+2018|TWICE|What Is Love?
+2019|TWICE|Fancy
+2015|iKON|Rhythm Ta
+2018|iKON|Love Scenario (사랑을 했다)
+2016|BLACKPINK|Whistle (휘파람)
+2016|BLACKPINK|Boombayah (붐바야)
+2017|BLACKPINK|As If It's Your Last (마지막처럼)
+2018|BLACKPINK|Ddu-Du Ddu-Du (뚜두뚜두)
+2019|BLACKPINK|Kill This Love
+2020|BLACKPINK|How You Like That
+2022|BLACKPINK|Pink Venom
+2025|BLACKPINK|Jump
+2016|I.O.I|Very Very Very (너무너무너무)
+2016|Seventeen|Very Nice (아주 NICE)
+2023|Seventeen|Super (손오공)
+2016|Chen & Punch|Everytime
+2016|Yoon Mi-rae|Always
+2016|Chanyeol & Punch|Stay With Me
+2016|Bolbbalgan4|Galaxy (우주를 줄게)
+2017|NCT 127|Cherry Bomb
+2020|NCT 127|Kick It (영웅)
+2021|NCT Dream|Hot Sauce (맛)
+2017|Wanna One|Energetic
+2017|Sunmi|Gashina (가시나)
+2017|Brave Girls|Rollin'
+2017|Day6|You Were Beautiful (예뻤어)
+2019|Day6|Time of Our Life (한 페이지가 될 수 있게)
+2024|Day6|Welcome to the Show
+2018|Momoland|Bboom Bboom (뿜뿜)
+2018|Jennie|Solo
+2025|JENNIE|Like JENNIE
+2018|(G)I-DLE|Latata
+2022|(G)I-DLE|Tomboy
+2023|(G)I-DLE|Queencard (퀸카)
+2018|IZ*ONE|La Vie en Rose (라비앙로즈)
+2018|Paul Kim|Every Day, Every Moment (모든 날, 모든 순간)
+2019|ITZY|Dalla Dalla (달라달라)
+2019|ITZY|Icy
+2020|ITZY|Wannabe
+2019|TXT|Crown (어느날 머리에서 뿔이 자랐다)
+2019|Chungha|Gotta Go (벌써 12시)
+2019|Jannabi|For Lovers Who Hesitate (주저하는 연인들을 위해)
+2020|Stray Kids|God's Menu (神메뉴)
+2022|Stray Kids|Maniac
+2023|Stray Kids|S-Class (특)
+2020|Zico|Any Song (아무노래)
+2020|SSAK3|Beach Again
+2020|Hwasa|Maria (마리아)
+2020|aespa|Black Mamba
+2021|aespa|Next Level
+2023|aespa|Spicy
+2024|aespa|Supernova
+2024|aespa|Whiplash
+2025|aespa|Dirty Work
+2021|Lisa|Money
+2024|LISA|Rockstar
+2021|Rosé|On the Ground
+2024|ROSÉ & Bruno Mars|APT.
+2021|Lee Mu-jin|Traffic Light (신호등)
+2021|STAYC|ASAP
+2021|IVE|Eleven
+2022|IVE|Love Dive
+2023|IVE|I Am
+2022|NewJeans|Attention
+2022|NewJeans|Hype Boy
+2022|NewJeans|Ditto
+2023|NewJeans|Super Shy
+2024|NewJeans|How Sweet
+2022|LE SSERAFIM|Fearless
+2022|LE SSERAFIM|Antifragile
+2023|LE SSERAFIM|Perfect Night
+2023|FIFTY FIFTY|Cupid
+2023|Jisoo|Flower (꽃)
+2023|Jung Kook|Seven (feat. Latto)
+2023|Jimin|Like Crazy
+2023|RIIZE|Get A Guitar
+2024|ILLIT|Magnetic
+2024|BABYMONSTER|Sheesh
+2024|G-Dragon|Power
+2025|HUNTR/X|Golden`;
+
+SONGS.usa = `1954|Bill Haley & His Comets|Rock Around the Clock
+1955|Chuck Berry|Maybellene
+1958|Chuck Berry|Johnny B. Goode
+1955|Little Richard|Tutti Frutti
+1956|Little Richard|Long Tall Sally
+1955|The Platters|Only You (And You Alone)
+1955|The Platters|The Great Pretender
+1956|Elvis Presley|Heartbreak Hotel
+1956|Elvis Presley|Hound Dog
+1957|Elvis Presley|Jailhouse Rock
+1961|Elvis Presley|Can't Help Falling in Love
+1969|Elvis Presley|Suspicious Minds
+1956|Johnny Cash|I Walk the Line
+1963|Johnny Cash|Ring of Fire
+1956|Fats Domino|Blueberry Hill
+1957|Buddy Holly & The Crickets|That'll Be the Day
+1957|Buddy Holly|Peggy Sue
+1957|Jerry Lee Lewis|Great Balls of Fire
+1957|The Everly Brothers|Wake Up Little Susie
+1958|The Everly Brothers|All I Have to Do Is Dream
+1958|Ritchie Valens|La Bamba
+1958|The Chordettes|Lollipop
+1958|Peggy Lee|Fever
+1959|Bobby Darin|Beyond the Sea
+1959|Ray Charles|What'd I Say
+1960|Ray Charles|Georgia on My Mind
+1961|Ray Charles|Hit the Road Jack
+1960|Chubby Checker|The Twist
+1960|The Drifters|Save the Last Dance for Me
+1960|The Shirelles|Will You Love Me Tomorrow
+1961|Ben E. King|Stand by Me
+1961|The Marvelettes|Please Mr. Postman
+1961|Patsy Cline|Crazy
+1961|Dion|Runaround Sue
+1962|The Four Seasons|Sherry
+1962|Little Eva|The Loco-Motion
+1963|The Ronettes|Be My Baby
+1963|The Kingsmen|Louie Louie
+1963|The Beach Boys|Surfin' U.S.A.
+1964|The Beach Boys|I Get Around
+1966|The Beach Boys|Good Vibrations
+1964|The Supremes|Baby Love
+1966|The Supremes|You Can't Hurry Love
+1964|Roy Orbison|Oh, Pretty Woman
+1964|Martha and the Vandellas|Dancing in the Street
+1964|The Righteous Brothers|You've Lost That Lovin' Feelin'
+1965|The Righteous Brothers|Unchained Melody
+1964|The Temptations|My Girl
+1972|The Temptations|Papa Was a Rollin' Stone
+1964|Frank Sinatra|Fly Me to the Moon
+1969|Frank Sinatra|My Way
+1965|Sonny & Cher|I Got You Babe
+1965|Bob Dylan|Like a Rolling Stone
+1965|The Byrds|Mr. Tambourine Man
+1965|The Mamas & the Papas|California Dreamin'
+1965|Simon & Garfunkel|The Sound of Silence
+1968|Simon & Garfunkel|Mrs. Robinson
+1970|Simon & Garfunkel|Bridge over Troubled Water
+1965|James Brown|I Got You (I Feel Good)
+1966|Percy Sledge|When a Man Loves a Woman
+1966|The Monkees|I'm a Believer
+1967|Aretha Franklin|Respect
+1967|Aretha Franklin|(You Make Me Feel Like) A Natural Woman
+1967|The Doors|Light My Fire
+1967|Jefferson Airplane|Somebody to Love
+1967|Marvin Gaye & Tammi Terrell|Ain't No Mountain High Enough
+1967|Frankie Valli|Can't Take My Eyes Off You
+1968|Marvin Gaye|I Heard It Through the Grapevine
+1971|Marvin Gaye|What's Going On
+1968|Otis Redding|(Sittin' On) The Dock of the Bay
+1968|The Jimi Hendrix Experience|All Along the Watchtower
+1968|Steppenwolf|Born to Be Wild
+1968|Sly & the Family Stone|Everyday People
+1969|Creedence Clearwater Revival|Proud Mary
+1969|Creedence Clearwater Revival|Fortunate Son
+1969|The Jackson 5|I Want You Back
+1970|The Jackson 5|ABC
+1970|The Carpenters|(They Long to Be) Close to You
+1971|Carole King|It's Too Late
+1971|Don McLean|American Pie
+1971|John Denver|Take Me Home, Country Roads
+1971|Bill Withers|Ain't No Sunshine
+1972|Bill Withers|Lean on Me
+1971|Al Green|Let's Stay Together
+1971|Janis Joplin|Me and Bobby McGee
+1972|Stevie Wonder|Superstition
+1976|Stevie Wonder|Isn't She Lovely
+1984|Stevie Wonder|I Just Called to Say I Love You
+1972|Eagles|Take It Easy
+1976|Eagles|Hotel California
+1973|Jim Croce|Bad, Bad Leroy Brown
+1973|Roberta Flack|Killing Me Softly with His Song
+1973|Dolly Parton|Jolene
+1974|Dolly Parton|I Will Always Love You
+1980|Dolly Parton|9 to 5
+1973|Billy Joel|Piano Man
+1977|Billy Joel|Just the Way You Are
+1983|Billy Joel|Uptown Girl
+1989|Billy Joel|We Didn't Start the Fire
+1973|Steve Miller Band|The Joker
+1973|Kool & the Gang|Jungle Boogie
+1980|Kool & the Gang|Celebration
+1974|Lynyrd Skynyrd|Sweet Home Alabama
+1974|Barry White|Can't Get Enough of Your Love, Babe
+1975|Earth, Wind & Fire|Shining Star
+1978|Earth, Wind & Fire|September
+1975|Bruce Springsteen|Born to Run
+1984|Bruce Springsteen|Dancing in the Dark
+1975|KC and the Sunshine Band|That's the Way (I Like It)
+1975|Aerosmith|Walk This Way
+1998|Aerosmith|I Don't Want to Miss a Thing
+1975|Glen Campbell|Rhinestone Cowboy
+1976|Boston|More Than a Feeling
+1976|Ramones|Blitzkrieg Bop
+1976|Wild Cherry|Play That Funky Music
+1977|Donna Summer|I Feel Love
+1979|Donna Summer|Hot Stuff
+1978|Village People|Y.M.C.A.
+1978|Gloria Gaynor|I Will Survive
+1978|Chic|Le Freak
+1978|Blondie|Heart of Glass
+1980|Blondie|Call Me
+1978|Kenny Rogers|The Gambler
+1978|Toto|Hold the Line
+1982|Toto|Africa
+1979|Sister Sledge|We Are Family
+1979|The Sugarhill Gang|Rapper's Delight
+1979|The Knack|My Sharona
+1979|Michael Jackson|Don't Stop 'Til You Get Enough
+1982|Michael Jackson|Billie Jean
+1987|Michael Jackson|Bad
+1991|Michael Jackson|Black or White
+1980|Pat Benatar|Hit Me with Your Best Shot
+1981|Journey|Don't Stop Believin'
+1981|Joan Jett & the Blackhearts|I Love Rock 'n' Roll
+1981|Rick Springfield|Jessie's Girl
+1981|Kim Carnes|Bette Davis Eyes
+1981|Diana Ross & Lionel Richie|Endless Love
+1981|Hall & Oates|Private Eyes
+1982|Survivor|Eye of the Tiger
+1982|John Cougar|Jack & Diane
+1983|Lionel Richie|All Night Long (All Night)
+1983|Cyndi Lauper|Girls Just Want to Have Fun
+1983|Irene Cara|Flashdance... What a Feeling
+1983|Michael Sembello|Maniac
+1984|Prince|When Doves Cry
+1984|Prince|Purple Rain
+1986|Prince|Kiss
+1984|Madonna|Like a Virgin
+1989|Madonna|Like a Prayer
+1990|Madonna|Vogue
+1984|Kenny Loggins|Footloose
+1984|Ray Parker Jr.|Ghostbusters
+1984|Tina Turner|What's Love Got to Do with It
+1985|USA for Africa|We Are the World
+1985|Whitney Houston|How Will I Know
+1987|Whitney Houston|I Wanna Dance with Somebody (Who Loves Me)
+1992|Whitney Houston|I Will Always Love You
+1985|Huey Lewis and the News|The Power of Love
+1985|Starship|We Built This City
+1985|Mr. Mister|Broken Wings
+1986|Bon Jovi|Livin' on a Prayer
+2000|Bon Jovi|It's My Life
+1986|Run-DMC & Aerosmith|Walk This Way
+1986|Berlin|Take My Breath Away
+1986|The Bangles|Walk Like an Egyptian
+1986|Beastie Boys|(You Gotta) Fight for Your Right (To Party!)
+1986|Janet Jackson|Nasty
+1989|Janet Jackson|Rhythm Nation
+1987|Guns N' Roses|Sweet Child o' Mine
+1991|Guns N' Roses|November Rain
+1987|Bill Medley & Jennifer Warnes|(I've Had) The Time of My Life
+1987|Belinda Carlisle|Heaven Is a Place on Earth
+1987|Tiffany|I Think We're Alone Now
+1988|Bobby McFerrin|Don't Worry, Be Happy
+1988|Tracy Chapman|Fast Car
+1988|Paula Abdul|Straight Up
+1989|The B-52's|Love Shack
+1989|Richard Marx|Right Here Waiting
+1990|MC Hammer|U Can't Touch This
+1990|Wilson Phillips|Hold On
+1990|Mariah Carey|Vision of Love
+1993|Mariah Carey|Hero
+1994|Mariah Carey|All I Want for Christmas Is You
+2005|Mariah Carey|We Belong Together
+1991|Nirvana|Smells Like Teen Spirit
+1991|R.E.M.|Losing My Religion
+1992|Sir Mix-a-Lot|Baby Got Back
+1992|Billy Ray Cyrus|Achy Breaky Heart
+1992|Kris Kross|Jump
+1992|Dr. Dre|Nuthin' but a "G" Thang
+1992|Boyz II Men|End of the Road
+1994|Boyz II Men|I'll Make Love to You
+1994|TLC|Creep
+1994|TLC|Waterfalls
+1999|TLC|No Scrubs
+1994|Weezer|Buddy Holly
+1994|Green Day|Basket Case
+2004|Green Day|Boulevard of Broken Dreams
+1993|Sheryl Crow|All I Wanna Do
+1994|The Notorious B.I.G.|Juicy
+1994|Hootie & the Blowfish|Hold My Hand
+1995|Coolio|Gangsta's Paradise
+1995|2Pac|California Love
+1995|No Doubt|Don't Speak
+1996|Toni Braxton|Un-Break My Heart
+1996|Fugees|Killing Me Softly
+1997|Hanson|MMMBop
+1997|Backstreet Boys|Everybody (Backstreet's Back)
+1999|Backstreet Boys|I Want It That Way
+1997|Puff Daddy & Faith Evans|I'll Be Missing You
+1997|Will Smith|Men in Black
+1997|Third Eye Blind|Semi-Charmed Life
+1997|Sugar Ray|Fly
+1998|Britney Spears|...Baby One More Time
+2000|Britney Spears|Oops!... I Did It Again
+2003|Britney Spears|Toxic
+2008|Britney Spears|Womanizer
+1998|Lauryn Hill|Doo Wop (That Thing)
+1998|Brandy & Monica|The Boy Is Mine
+1998|Cher|Believe
+1999|Ricky Martin|Livin' la Vida Loca
+1999|Christina Aguilera|Genie in a Bottle
+2002|Christina Aguilera|Beautiful
+1999|Santana|Smooth (feat. Rob Thomas)
+1999|Destiny's Child|Bills, Bills, Bills
+2001|Destiny's Child|Survivor
+1999|Smash Mouth|All Star
+1999|Eminem|My Name Is
+2000|Eminem|The Real Slim Shady
+2002|Eminem|Lose Yourself
+2010|Eminem|Love the Way You Lie (feat. Rihanna)
+1999|Jennifer Lopez|If You Had My Love
+2002|Jennifer Lopez|Jenny from the Block
+1999|Red Hot Chili Peppers|Scar Tissue
+2000|Linkin Park|In the End
+2003|Linkin Park|Numb
+2001|Alicia Keys|Fallin'
+2007|Alicia Keys|No One
+2001|Train|Drops of Jupiter (Tell Me)
+2009|Train|Hey, Soul Sister
+2001|Jimmy Eat World|The Middle
+2001|Missy Elliott|Get Ur Freak On
+2002|Missy Elliott|Work It
+2002|Nelly|Hot in Herre
+2002|Vanessa Carlton|A Thousand Miles
+2002|Norah Jones|Don't Know Why
+2002|Justin Timberlake|Cry Me a River
+2006|Justin Timberlake|SexyBack
+2016|Justin Timberlake|Can't Stop the Feeling!
+2003|The White Stripes|Seven Nation Army
+2003|Beyoncé|Crazy in Love (feat. Jay-Z)
+2006|Beyoncé|Irreplaceable
+2008|Beyoncé|Single Ladies (Put a Ring on It)
+2016|Beyoncé|Formation
+2022|Beyoncé|Cuff It
+2024|Beyoncé|Texas Hold 'Em
+2003|OutKast|Hey Ya!
+2003|50 Cent|In da Club
+2003|The Black Eyed Peas|Where Is the Love?
+2009|The Black Eyed Peas|I Gotta Feeling
+2003|Evanescence|Bring Me to Life
+2003|The Killers|Mr. Brightside
+2004|Usher|Yeah! (feat. Lil Jon & Ludacris)
+2004|Ciara|Goodies (feat. Petey Pablo)
+2004|Kelly Clarkson|Since U Been Gone
+2011|Kelly Clarkson|Stronger (What Doesn't Kill You)
+2004|Gwen Stefani|Hollaback Girl
+2005|Kanye West|Gold Digger (feat. Jamie Foxx)
+2007|Kanye West|Stronger
+2005|Fall Out Boy|Sugar, We're Goin Down
+2005|The Pussycat Dolls|Don't Cha
+2005|Panic! at the Disco|I Write Sins Not Tragedies
+2006|Gnarls Barkley|Crazy
+2006|My Chemical Romance|Welcome to the Black Parade
+2007|Soulja Boy|Crank That (Soulja Boy)
+2007|Flo Rida|Low (feat. T-Pain)
+2008|Taylor Swift|Love Story
+2012|Taylor Swift|We Are Never Ever Getting Back Together
+2014|Taylor Swift|Shake It Off
+2017|Taylor Swift|Look What You Made Me Do
+2019|Taylor Swift|Cruel Summer
+2022|Taylor Swift|Anti-Hero
+2025|Taylor Swift|The Fate of Ophelia
+2008|Katy Perry|I Kissed a Girl
+2010|Katy Perry|California Gurls
+2010|Katy Perry|Firework
+2013|Katy Perry|Roar
+2008|Lady Gaga|Just Dance
+2008|Lady Gaga|Poker Face
+2009|Lady Gaga|Bad Romance
+2011|Lady Gaga|Born This Way
+2018|Lady Gaga & Bradley Cooper|Shallow
+2025|Lady Gaga|Abracadabra
+2008|Kings of Leon|Use Somebody
+2008|Jason Mraz|I'm Yours
+2009|Kesha|TiK ToK
+2009|Jay-Z & Alicia Keys|Empire State of Mind
+2009|Miley Cyrus|Party in the U.S.A.
+2013|Miley Cyrus|Wrecking Ball
+2023|Miley Cyrus|Flowers
+2009|Owl City|Fireflies
+2010|Bruno Mars|Just the Way You Are
+2010|Bruno Mars|Grenade
+2012|Bruno Mars|Locked Out of Heaven
+2016|Bruno Mars|24K Magic
+2014|Mark Ronson|Uptown Funk (feat. Bruno Mars)
+2010|Cee Lo Green|Forget You
+2010|Foster the People|Pumped Up Kicks
+2011|LMFAO|Party Rock Anthem
+2011|Maroon 5|Moves Like Jagger (feat. Christina Aguilera)
+2012|Maroon 5|Payphone (feat. Wiz Khalifa)
+2019|Maroon 5|Memories
+2011|fun.|We Are Young (feat. Janelle Monáe)
+2012|Nicki Minaj|Starships
+2014|Nicki Minaj|Anaconda
+2012|Imagine Dragons|Radioactive
+2017|Imagine Dragons|Believer
+2012|Macklemore & Ryan Lewis|Thrift Shop
+2013|Pharrell Williams|Happy
+2014|Meghan Trainor|All About That Bass
+2014|Ariana Grande|Problem (feat. Iggy Azalea)
+2018|Ariana Grande|thank u, next
+2019|Ariana Grande|7 rings
+2020|Ariana Grande|positions
+2015|Wiz Khalifa|See You Again (feat. Charlie Puth)
+2015|Silentó|Watch Me (Whip/Nae Nae)
+2015|Twenty One Pilots|Stressed Out
+2016|The Chainsmokers|Closer (feat. Halsey)
+2016|Rae Sremmurd|Black Beatles
+2017|Luis Fonsi|Despacito (feat. Daddy Yankee)
+2017|Kendrick Lamar|HUMBLE.
+2024|Kendrick Lamar|Not Like Us
+2017|Cardi B|Bodak Yellow
+2018|Cardi B|I Like It (with Bad Bunny & J Balvin)
+2020|Cardi B|WAP (feat. Megan Thee Stallion)
+2017|Post Malone|rockstar (feat. 21 Savage)
+2018|Post Malone & Swae Lee|Sunflower
+2019|Post Malone|Circles
+2024|Post Malone|I Had Some Help (feat. Morgan Wallen)
+2017|Portugal. The Man|Feel It Still
+2018|Childish Gambino|This Is America
+2018|Travis Scott|SICKO MODE
+2018|Lil Nas X|Old Town Road
+2021|Lil Nas X|MONTERO (Call Me By Your Name)
+2019|Billie Eilish|bad guy
+2021|Billie Eilish|Happier Than Ever
+2023|Billie Eilish|What Was I Made For?
+2024|Billie Eilish|BIRDS OF A FEATHER
+2019|Jonas Brothers|Sucker
+2020|Megan Thee Stallion|Savage
+2020|24kGoldn|Mood (feat. iann dior)
+2021|Olivia Rodrigo|drivers license
+2023|Olivia Rodrigo|vampire
+2021|Silk Sonic|Leave the Door Open
+2021|Doja Cat|Kiss Me More (feat. SZA)
+2023|Doja Cat|Paint The Town Red
+2022|Lizzo|About Damn Time
+2022|Steve Lacy|Bad Habit
+2022|Jack Harlow|First Class
+2022|SZA|Kill Bill
+2023|Morgan Wallen|Last Night
+2023|Teddy Swims|Lose Control
+2024|Sabrina Carpenter|Espresso
+2025|Sabrina Carpenter|Manchild
+2024|Chappell Roan|Good Luck, Babe!
+2024|Shaboozey|A Bar Song (Tipsy)
+2024|Benson Boone|Beautiful Things
+2024|Lady Gaga & Bruno Mars|Die With A Smile
+2025|Alex Warren|Ordinary`;
+
+for (const k in SONGS) SONGS[k] = SONGS[k].split("\n").map(s => s.trim()).filter(Boolean).map(s => {
+  const [y, a, t, q] = s.split("|");
+  return { y: Number(y), a, t, q };
+});
+
+const MODES = {
+  kpop: {
+    name: "K-Pop", color: "var(--m-kpop)",
+    pitch: "Korean hits through the decades, from Seo Taiji and Boys to NewJeans and ROSÉ.",
+    eras: [["classic", "Classics", 0, 1989], ["90s", "'90s", 1990, 1999], ["00s", "'00s", 2000, 2009], ["10s", "'10s", 2010, 2019], ["20s", "'20s", 2020, 2099]]
+  },
+  usa: {
+    name: "USA Hits", color: "var(--m-usa)",
+    pitch: "American hits through the decades, from Elvis and Motown to Beyoncé and Sabrina Carpenter.",
+    eras: [["50s", "'50s", 0, 1959], ["60s", "'60s", 1960, 1969], ["70s", "'70s", 1970, 1979], ["80s", "'80s", 1980, 1989],
+           ["90s", "'90s", 1990, 1999], ["00s", "'00s", 2000, 2009], ["10s", "'10s", 2010, 2019], ["20s", "'20s", 2020, 2099]]
+  }
+};
+const RULES = [
+  "Flip the music phone face down and a mystery song starts playing.",
+  "On your turn, place it in your timeline, from oldest to newest.",
+  "Right spot? The song joins your timeline. Wrong spot? It's gone.",
+  "Feeling sure? Call the exact year too. Nail it for a free bonus song.",
+  "First to the target number of songs wins. In co-op you build one timeline together: a wrong spot costs a life, an exact year wins one back."
+];
+</script>
+<script>
+(() => {
+"use strict";
+
+/* ================= utils ================= */
+const $ = s => document.querySelector(s);
+const app = $("#app"), layer = $("#layer");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const rnd = n => Math.floor(Math.random() * n);
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const uid = () => Math.random().toString(36).slice(2, 10);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+const params = new URLSearchParams(location.search);
+// per-tab identity in a room, so two tabs on one device are two players (survives reloads)
+const tabStore = {
+  get(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { sessionStorage.setItem(k, v); } catch (e) {} }
+};
+const cleanName = n => String(n || "").replace(/\s+/g, " ").trim().slice(0, 16);
+const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ";
+const newCode = () => Array.from({ length: 4 }, () => CODE_CHARS[rnd(CODE_CHARS.length)]).join("");
+const PREFIX = "rewind-v1-";
+const RTC_OK = typeof RTCPeerConnection !== "undefined" || params.get("net") === "local";
+const NO_RTC = "Rooms don't work in this browser. Open Rewind in Safari or Chrome to start or join a room.";
+const MAX_PLAYERS = 12;
+const NOW_YEAR = Math.max(2025, new Date().getFullYear());
+const CLIP = 45;                                  // seconds of song in clip mode
+
+const OPTS = { play: ["solo", "teams", "coop"], goal: [6, 8, 10, 12], lives: [2, 3, 5], clip: ["clip", "full"], bonus: [true, false] };
+const freshSet = k => ({ play: "solo", goal: 10, lives: 3, clip: "clip", bonus: true, eras: MODES[k].eras.map(e => e[0]) });
+const DEFAULTS = Object.fromEntries(Object.keys(MODES).map(k => [k, freshSet(k)]));
+function loadSets() {
+  const saved = store.get("rewind-sets", {}), out = {};
+  for (const k in MODES) {
+    const s = Object.assign(freshSet(k), saved[k] || {}), valid = MODES[k].eras.map(e => e[0]);
+    s.eras = (Array.isArray(s.eras) ? s.eras : []).filter(e => valid.includes(e));
+    if (!s.eras.length) s.eras = valid.slice();
+    for (const o in OPTS) if (!OPTS[o].includes(s[o])) s[o] = DEFAULTS[k][o];
+    out[k] = s;
+  }
+  return out;
+}
+const coerce = (k, v) => {
+  if (!(k in OPTS)) return undefined;
+  const d = DEFAULTS.kpop[k];
+  const val = typeof d === "boolean" ? v === "true" || v === true : typeof d === "number" ? Number(v) : String(v);
+  return OPTS[k].includes(val) ? val : undefined;
+};
+const TEAM_POOL = ["Mixtape", "B-Sides", "Encore", "Jukebox", "Headliners", "Backup Dancers", "One-Hit Wonders", "Bangers", "Ballads", "Mic Drop", "Remix", "Cassette", "Vinyl", "Bridge", "Key Change"];
+const drawTeamNames = (not = []) => shuffle(TEAM_POOL.filter(n => !not.includes(n))).slice(0, 2);
+
+/* ================= state ================= */
+let S = null;      // shared game state; the host (or the single phone) is the source of truth
+let ME = null;     // my player id in a room; null when everyone shares one phone
+let ROLE = null;   // 'pass' | 'host' | 'guest'
+const U = {
+  screen: "home", pick: null, err: "", net: "",
+  pp: [],                                       // pass-and-play roster [{id,name,team}], fresh each visit
+  sets: loadSets(),
+  name: store.get("rewind-name", ""),
+  joinCode: (params.get("room") || "").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4),
+  teamNames: store.get("rewind-teamnames", null) || drawTeamNames(),
+  drafts: {}, sheet: null,
+  placing: "",                                  // turn key once this phone moved from the song to the timeline
+  yrOn: false, yrKey: "", keyMsg: null
+};
+if (U.joinCode) U.screen = "join";
+
+/* ================= songs + decks ================= */
+const song = (mode, i) => SONGS[mode][i];
+const eraOf = (mode, y) => { const e = MODES[mode].eras.find(e => y >= e[2] && y <= e[3]); return e ? e[0] : null; };
+const poolOf = (mode, eras) => SONGS[mode].map((_, i) => i).filter(i => eras.includes(eraOf(mode, SONGS[mode][i].y)));
+const minYear = mode => Math.floor(Math.min(...SONGS[mode].map(s => s.y)) / 10) * 10;
+const spanOf = mode => { const ys = SONGS[mode].map(s => s.y); return Math.min(...ys) + "–" + Math.max(...ys); };
+function makeDeck(mode, eras) {
+  const seen = new Set(store.get("rewind-seen-" + mode, []));
+  const all = poolOf(mode, eras);
+  return shuffle(all.filter(i => !seen.has(i))).concat(shuffle(all.filter(i => seen.has(i))));
+}
+function markSeen(mode, i) {
+  let s = store.get("rewind-seen-" + mode, []);
+  if (!s.includes(i)) s.push(i);
+  if (s.length >= SONGS[mode].length) s = [i];
+  store.set("rewind-seen-" + mode, s);
+}
+function draw(g) {
+  if (g.di >= g.deck.length) return null;
+  const i = g.deck[g.di++]; markSeen(g.type, i); return i;
+}
+
+/* ================= players ================= */
+const player = id => S && S.players.find(p => p.id === id);
+const nm = id => { const p = player(id); return p ? p.name : "?"; };
+const online = id => { const p = player(id); return !!(p && p.on); };
+const isHostDevice = () => ROLE !== "guest";
+function uniqueName(n) {
+  let base = n || "Player", out = base, k = 2;
+  while (S.players.some(p => p.name.toLowerCase() === out.toLowerCase())) out = base + " " + k++;
+  return out;
+}
+const teamName = i => ((S && S.teamNames) || U.teamNames)[i] || (i ? "Team B" : "Team A");
+
+/* ================= timelines ================= */
+const side = g => g.sides[g.at];
+const yr = (g, i) => SONGS[g.type][i].y;
+const sideName = (g, s) => g.play === "coop" ? "Everyone" : g.play === "teams" ? teamName(s.team) : nm(s.ids[0]);
+// may player `from` act for side s? (the host covers sides whose players are all offline)
+const mayFor = (s, from) => ROLE === "pass" || s.ids.includes(from) || (from === S.hostId && s.ids.every(p => !online(p)));
+// may this device act for side s?
+const mySide = s => ROLE === "pass" || s.ids.includes(ME) || (ROLE === "host" && s.ids.every(p => !online(p)));
+// the years a song can have to fit gap `pos` of the active timeline
+function yearRange(g, pos) {
+  const L = side(g).line;
+  return [pos > 0 ? yr(g, L[pos - 1]) : minYear(g.type), pos < L.length ? yr(g, L[pos]) : NOW_YEAR];
+}
+function insertSorted(g, line, i) {
+  let p = line.findIndex(j => yr(g, j) > yr(g, i));
+  line.splice(p < 0 ? line.length : p, 0, i);
+}
+const turnKey = g => (S.code || "") + "|" + g.turn;
+const gameDone = g => side(g).line.length >= g.goal || (g.play === "coop" && g.lives <= 0);
+
+/* ================= game setup ================= */
+function makeTeams(roster) {
+  let a = roster.filter(id => (player(id).team || 0) === 0), b = roster.filter(id => player(id).team === 1);
+  if (a.length < 2 || b.length < 2) { a = roster.filter((_, i) => i % 2 === 0); b = roster.filter((_, i) => i % 2 === 1); }
+  return [a, b];
+}
+// what stops this group from starting, or ""
+function playProblem(set, list) {
+  const n = list.length;
+  if (n > MAX_PLAYERS) return `Up to ${MAX_PLAYERS} players`;
+  if (set.play === "coop") return n < 1 ? "Add a player" : "";
+  if (set.play === "teams") {
+    if (n < 4) return "Teams need at least 4 players";
+    const b = list.filter(p => p.team === 1).length;
+    return b < 2 || n - b < 2 ? "Each team needs at least 2 players" : "";
+  }
+  return n < 2 ? "Versus needs at least 2 players. Pick co-op to play on your own" : "";
+}
+function deckProblem(mode, set) {
+  const n = poolOf(mode, set.eras).length;
+  return n < 20 ? `Only ${n} songs in those eras. Pick more eras` : "";
+}
+const startProblem = (mode, set, list) => playProblem(set, list) || deckProblem(mode, set);
+
+function startGame() {
+  const roster = S.players.map(p => p.id), set = S.sets[S.mode];
+  const sides = set.play === "coop" ? [{ team: 0, ids: roster.slice(), line: [] }]
+    : set.play === "teams" ? makeTeams(roster).map((ids, team) => ({ team, ids, line: [] }))
+    : shuffle(roster.slice()).map(id => ({ team: 0, ids: [id], line: [] }));
+  const g = { type: S.mode, play: set.play, roster, sides, at: 0, goal: set.goal, lives: set.lives, maxLives: set.lives + 2,
+    clip: set.clip, bonus: set.bonus, deck: makeDeck(S.mode, set.eras), di: 0, cur: null, aim: null,
+    phase: "listen", res: null, turn: 1, out: false };
+  sides.forEach(s => s.line.push(draw(g)));      // everyone starts with one song face up
+  g.cur = draw(g);
+  S.stage = "play"; S.g = g;
+}
+
+/* ================= reducer (runs on the host / the single phone) ================= */
+function apply(a, from) {
+  if (!S || !a || typeof a.type !== "string") return;
+  const host = ROLE === "pass" || from === S.hostId;
+  const g = S.g;
+  const v = a.v;
+
+  /* ---- lobby / meta ---- */
+  switch (a.type) {
+    case "setMode": if (host && S.stage === "lobby" && MODES[v]) S.mode = v; return;
+    case "set": {
+      if (!host || S.stage !== "lobby") return;
+      const val = coerce(a.k, v);
+      if (val !== undefined) S.sets[S.mode][a.k] = val;
+      return;
+    }
+    case "era": {
+      const set = S.sets[S.mode];
+      if (!host || S.stage !== "lobby" || !MODES[S.mode].eras.some(e => e[0] === v)) return;
+      if (set.eras.includes(v)) { if (set.eras.length > 1) set.eras = set.eras.filter(e => e !== v); }
+      else set.eras = MODES[S.mode].eras.map(e => e[0]).filter(e => e === v || set.eras.includes(e));
+      return;
+    }
+    case "teamNames":
+      if (host && Array.isArray(a.val)) S.teamNames = [0, 1].map(i => cleanName(a.val[i]) || S.teamNames[i]);
+      return;
+    case "team": { const p = player(v); if ((host || from === v) && p && S.stage === "lobby") p.team = p.team ? 0 : 1; return; }
+    case "shuffleTeams": if (host && S.stage === "lobby") splitTeams(S.players); return;
+    case "kick": {
+      if (!host || v === S.hostId || S.stage !== "lobby") return;
+      S.players = S.players.filter(p => p.id !== v);
+      const c = Net.conns.get(v); if (c) { try { c.send({ t: "kicked" }); } catch (e) {} setTimeout(() => { try { c.close(); } catch (e) {} }, 200); Net.conns.delete(v); }
+      return;
+    }
+    case "rename": {
+      const p = player(from); const n = cleanName(v);
+      if (p && n && S.stage === "lobby") { p.name = ""; p.name = uniqueName(n); }
+      return;
+    }
+    case "start":
+      if (host && S.stage === "lobby" && !startProblem(S.mode, S.sets[S.mode], S.players)) startGame();
+      return;
+    case "again": if (host && S.stage === "over") startGame(); return;
+    case "lobby": if (host) { S.stage = "lobby"; S.g = null; } return;
+    case "drop": if (host && g && S.stage === "play") dropPlayer(v); return;
+  }
+  if (!g || S.stage !== "play") return;
+
+  /* ---- a turn: aim at a gap, lock it in, see the reveal ---- */
+  const s = side(g);
+  switch (a.type) {
+    case "aim": {
+      const p = Number(v);
+      if (g.phase === "listen" && mayFor(s, from) && Number.isInteger(p) && p >= 0 && p <= s.line.length) g.aim = p;
+      return;
+    }
+    case "place": {
+      if (g.phase !== "listen" || !mayFor(s, from) || g.aim == null) return;
+      const L = s.line, p = g.aim, y = yr(g, g.cur), [lo, hi] = yearRange(g, p);
+      const ok = lo <= y && y <= hi;
+      const c = Number(a.year);
+      const call = g.bonus && a.year != null && a.year !== "" && Number.isInteger(c) && c >= lo && c <= hi ? c : null;
+      const exact = ok && call === y;
+      g.res = { ok, exact, call, pos: p, song: g.cur, extra: null, life: 0 };
+      if (ok) L.splice(p, 0, g.cur);
+      else if (g.play === "coop") { g.lives--; g.res.life = -1; }
+      if (exact) {
+        if (g.play === "coop") { if (g.lives < g.maxLives) { g.lives++; g.res.life = 1; } }
+        else { const b = draw(g); if (b != null) { insertSorted(g, L, b); g.res.extra = b; } }
+      }
+      g.phase = "reveal";
+      return;
+    }
+    case "skip":                                 // the music phone couldn't play this one: swap it, no penalty
+      if (g.phase === "listen" && host) {
+        const n = draw(g);
+        if (n == null) { g.out = true; S.stage = "over"; } else { g.cur = n; g.aim = null; }
+      }
+      return;
+    case "next": {
+      if (g.phase !== "reveal" || !(host || g.roster.includes(from))) return;
+      if (gameDone(g)) { S.stage = "over"; return; }
+      const n = draw(g);
+      if (n == null) { g.out = true; S.stage = "over"; return; }
+      g.cur = n; g.at = (g.at + 1) % g.sides.length; g.aim = null; g.res = null; g.phase = "listen"; g.turn++;
+      return;
+    }
+  }
+}
+function dropPlayer(pid) {
+  const g = S.g; if (!g.roster.includes(pid)) return;
+  g.roster = g.roster.filter(p => p !== pid);
+  g.sides.forEach(s => s.ids = s.ids.filter(p => p !== pid));
+  const gone = g.sides.findIndex(s => !s.ids.length);
+  if (gone < 0) return;
+  if (g.play !== "solo" || g.sides.length <= 2) {    // a team (or the last rival) left: end it here
+    if (g.play === "solo") g.sides.splice(gone, 1);
+    S.stage = "over"; return;
+  }
+  const wasActive = gone === g.at;
+  g.sides.splice(gone, 1);
+  if (gone < g.at) g.at--;
+  g.at %= g.sides.length;
+  if (wasActive) {
+    g.aim = null;
+    if (g.phase === "reveal") {
+      const n = draw(g);
+      if (n == null) { g.out = true; S.stage = "over"; return; }
+      g.cur = n; g.res = null; g.phase = "listen"; g.turn++;
+    }
+  }
+}
+
+/* ================= networking =================
+   Rooms are peer-to-peer (WebRTC via PeerJS). The host's phone holds the game
+   and plays the music; everyone else sends actions to it and gets the state back. */
+const Net = { peer: null, conn: null, conns: new Map(), code: null, lost: false, retrying: false };
+
+class Emitter { constructor() { this.h = {}; } on(e, f) { (this.h[e] = this.h[e] || []).push(f); return this; } emit(e, ...a) { (this.h[e] || []).forEach(f => f(...a)); } }
+// Same-browser stand-in for PeerJS (?net=local): lets several tabs play a room with no internet.
+const BUS = ("BroadcastChannel" in window) ? new BroadcastChannel("rewind-local-net") : null;
+class FakeConn extends Emitter {
+  constructor(peer, remote, cid) { super(); this.peer = peer; this.remote = remote; this.cid = cid; this.open = false; }
+  send(d) { BUS.postMessage({ k: "d", to: this.remote, from: this.peer.id, cid: this.cid, d: JSON.parse(JSON.stringify(d)) }); }
+  close() { if (!this.open) return; this.open = false; BUS.postMessage({ k: "x", to: this.remote, from: this.peer.id, cid: this.cid }); this.emit("close"); }
+}
+class FakePeer extends Emitter {
+  constructor(id) {
+    super(); this.id = typeof id === "string" ? id : "anon-" + uid(); this.conns = {};
+    this.onmsg = ev => this.recv(ev.data); BUS.addEventListener("message", this.onmsg);
+    setTimeout(() => this.emit("open", this.id), 20);
+  }
+  recv(m) {
+    if (m.to !== this.id) return;
+    const c = this.conns[m.cid];
+    if (m.k === "c") {
+      const nc = new FakeConn(this, m.from, m.cid); this.conns[m.cid] = nc; nc.open = true;
+      this.emit("connection", nc); BUS.postMessage({ k: "a", to: m.from, from: this.id, cid: m.cid });
+      setTimeout(() => nc.emit("open"), 0);
+    } else if (m.k === "a" && c) { clearTimeout(c.t); c.open = true; c.emit("open"); }
+    else if (m.k === "d" && c && c.open) c.emit("data", m.d);
+    else if (m.k === "x" && c && c.open) { c.open = false; c.emit("close"); }
+  }
+  connect(id) {
+    const cid = uid(), c = new FakeConn(this, id, cid); this.conns[cid] = c;
+    BUS.postMessage({ k: "c", to: id, from: this.id, cid });
+    c.t = setTimeout(() => this.emit("error", { type: "peer-unavailable" }), 1500);
+    return c;
+  }
+  reconnect() {}
+  destroy() { Object.values(this.conns).forEach(c => c.close()); BUS.removeEventListener("message", this.onmsg); }
+}
+async function loadPeer() {
+  if (params.get("net") === "local" && BUS) return FakePeer;
+  if (window.Peer) return window.Peer;
+  await new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js";
+    s.onload = res; s.onerror = () => rej(new Error("Couldn't load online rooms. Check your internet connection."));
+    document.head.appendChild(s);
+  });
+  return window.Peer;
+}
+function peerOpts() {
+  const h = params.get("peerhost");               // for local testing against a self-hosted PeerServer
+  if (!h) return { debug: 0 };
+  const [host, port] = h.split(":");
+  return { host, port: Number(port) || 9000, path: "/", secure: location.protocol === "https:", debug: 0 };
+}
+function hostRoom(code, keepCode, tries = 0) {
+  return loadPeer().then(P => new Promise((res, rej) => {
+    let opened = false;
+    const peer = new P(PREFIX + code, peerOpts());
+    peer.on("open", () => { opened = true; Net.peer = peer; Net.code = code; res(code); });
+    peer.on("error", e => {
+      if (!opened) {
+        try { peer.destroy(); } catch (x) {}
+        if (e.type === "unavailable-id" && !keepCode) hostRoom(newCode()).then(res, rej);
+        else if (e.type === "unavailable-id" && tries < 6) setTimeout(() => hostRoom(code, true, tries + 1).then(res, rej), 3000);
+        else if (e.type === "unavailable-id") rej(new Error("Room " + code + " is still in use. Try again in a minute, or start a new room."));
+        else rej(new Error(e.type === "browser-incompatible" ? NO_RTC : "Couldn't open a room (" + (e.type || e.message) + ")."));
+      }
+    });
+    peer.on("disconnected", () => { setTimeout(() => { try { if (!peer.destroyed) peer.reconnect(); } catch (x) {} }, 1000); });
+    peer.on("connection", conn => {
+      conn.on("data", d => hostRecv(conn, d));
+      conn.on("close", () => {
+        if (conn.pid && Net.conns.get(conn.pid) === conn) {
+          Net.conns.delete(conn.pid);
+          const p = player(conn.pid); if (p) { p.on = false; commit(); }
+        }
+      });
+      conn.on("error", () => {});
+    });
+  }));
+}
+function hostRecv(conn, d) {
+  if (!S || !d || typeof d !== "object") return;
+  if (d.t === "join") {
+    const pid = String(d.pid || "").slice(0, 24) || uid();
+    let p = player(pid);
+    if (!p) {
+      if (S.players.length >= 16) { conn.send({ t: "err", msg: "That room is full." }); return; }
+      const n0 = S.players.filter(q => !q.team).length, n1 = S.players.length - n0;
+      p = { id: pid, name: uniqueName(cleanName(d.name) || "Player"), team: n0 > n1 ? 1 : 0, on: true };
+      S.players.push(p);
+    }
+    p.on = true; conn.pid = pid;
+    const old = Net.conns.get(pid);
+    Net.conns.set(pid, conn);
+    if (old && old !== conn) { try { old.close(); } catch (e) {} }
+    conn.send({ t: "hello", pid });
+    commit();
+  } else if (d.t === "act" && conn.pid) { apply(d.a, conn.pid); commit(); }
+  else if (d.t === "bye" && conn.pid) {
+    if (S.stage === "lobby") S.players = S.players.filter(p => p.id !== conn.pid);
+    else { const p = player(conn.pid); if (p) p.on = false; }
+    Net.conns.delete(conn.pid); commit();
+  }
+}
+function joinRoom(code, name) {
+  const pid = tabStore.get("rewind-pid-" + code) || uid();
+  return loadPeer().then(P => new Promise((res, rej) => {
+    let done = false;
+    const peer = new P(peerOpts());
+    const fail = msg => { if (done) return; done = true; clearTimeout(timer); try { peer.destroy(); } catch (e) {} rej(new Error(msg)); };
+    const timer = setTimeout(() => fail("Couldn't reach room " + code + ". Is the host's screen still open?"), 15000);
+    peer.on("error", e => {
+      if (!done) fail(e.type === "peer-unavailable" ? "No room called " + code + ". Check the code, or ask the host to keep Rewind open."
+        : e.type === "browser-incompatible" ? NO_RTC : "Couldn't connect (" + (e.type || e.message) + ").");
+    });
+    peer.on("open", () => {
+      const conn = peer.connect(PREFIX + code, { reliable: true });
+      conn.on("open", () => conn.send({ t: "join", pid, name }));
+      conn.on("data", d => {
+        if (!d) return;
+        if (d.t === "hello") {
+          ME = d.pid; ROLE = "guest"; tabStore.set("rewind-pid-" + code, d.pid);
+          if (!done) { done = true; clearTimeout(timer); if (Net.peer && Net.peer !== peer) { try { Net.peer.destroy(); } catch (e) {} } Net.peer = peer; Net.conn = conn; Net.code = code; Net.lost = false; res(); }
+        } else if (d.t === "state") { S = d.S; Net.lost = false; saveLocal(); render(); }
+        else if (d.t === "err") fail(d.msg);
+        else if (d.t === "kicked") { goHome("The host removed you from the room."); }
+        else if (d.t === "closed") { goHome("The host closed the room."); }
+      });
+      conn.on("close", () => {
+        if (!done || Net.conn !== conn || ROLE !== "guest") return;
+        Net.lost = true; render();
+        if (!Net.retrying) { Net.retrying = true; setTimeout(() => { Net.retrying = false; if (Net.lost) reconnect(true); }, 1500); }
+      });
+    });
+  }));
+}
+function reconnect(quiet) {
+  if (ROLE !== "guest" || !Net.code) return;
+  const me = player(ME);
+  joinRoom(Net.code, me ? me.name : U.name).then(() => { if (!quiet) toast("Reconnected"); render(); })
+    .catch(e => { if (!quiet) toast(e.message); render(); });
+}
+function broadcast() {
+  if (ROLE !== "host") return;
+  for (const [, c] of Net.conns) { if (c.open) { try { c.send({ t: "state", S }); } catch (e) {} } }
+}
+function commit() {
+  if (!S) return;
+  S.v = (S.v || 0) + 1;
+  saveLocal(); broadcast(); render();
+}
+function act(a) {
+  if (ROLE === "guest") {
+    if (Net.conn && Net.conn.open && !Net.lost) Net.conn.send({ t: "act", a });
+    else toast("Not connected. Tap Reconnect.");
+    return;
+  }
+  apply(a, ME); commit();
+}
+function saveLocal() {
+  if (!S) return;
+  if (ROLE === "guest") store.set("rewind-save", { role: "guest", code: Net.code, mode: S.mode, t: Date.now() });
+  else store.set("rewind-save", { role: ROLE, S, me: ME, t: Date.now() });
+}
+function teardown() {
+  if (ROLE === "host") { for (const [, c] of Net.conns) { try { c.send({ t: "closed" }); } catch (e) {} } }
+  if (ROLE === "guest" && Net.conn) { try { Net.conn.send({ t: "bye" }); } catch (e) {} }
+  const p = Net.peer;
+  setTimeout(() => { try { p && p.destroy(); } catch (e) {} }, 150);
+  Net.peer = null; Net.conn = null; Net.conns = new Map(); Net.code = null; Net.lost = false;
+}
+function goHome(msg) {
+  teardown(); store.del("rewind-save");
+  S = null; ME = null; ROLE = null; U.sheet = null; U.placing = ""; U.screen = "home";
+  render(); if (msg) toast(msg);
+}
+
+/* ================= music =================
+   Songs play through YouTube's embedded player on the host phone (or the single phone).
+   A YouTube Data API key finds each song once; results are remembered on this device.
+   Until the reveal, a cover sits over the player so nobody sees the title.             */
+const ICON = {
+  play: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>`,
+  pause: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4.5" width="4" height="15" rx="1"/><rect x="14" y="4.5" width="4" height="15" rx="1"/></svg>`,
+  again: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg>`,
+  flip: `<svg class="flipic wob" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="20" y="8" width="24" height="42" rx="5"/><path d="M29 44h6"/><path d="M8 34c0 10 7 18 17 21"/><path d="M19 51l6 4-2 7"/><path d="M56 30c0-10-7-18-17-21"/><path d="M45 13l-6-4 2-7"/></svg>`
+};
+const QUOTA_MSG = "YouTube's free daily search limit is used up (about 100 new songs a day). Songs you've played before still work. Skip this one, or try again tomorrow.";
+const Music = {
+  key: store.get("rewind-ytkey", ""),
+  cache: store.get("rewind-vids", {}),
+  api: null, made: null, player: null, ready: false,
+  song: null, ck: "", token: 0,
+  vid: null, start: 0, dur: 0,
+  st: "idle", msg: "", hint: "", sig: "",
+  revealed: false, unlocking: false, timer: null, dog: null
+};
+// Flip to play: phone face down = play. iPhones ask for motion permission once, from a tap.
+const Flip = {
+  needsPerm: typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function",
+  perm: false, ok: false, down: false, blocked: false,
+  touch: matchMedia("(pointer: coarse)").matches
+};
+const flipMode = () => !Flip.blocked && (Flip.ok || (Flip.needsPerm && Flip.touch));
+
+const songKey = (mode, i) => { const s = song(mode, i); return mode + ":" + s.a + "|" + s.t; };
+const ytQuery = s => s.q || (s.a + " " + s.t.replace(/\s*\([^)]*\)/g, "")).trim();
+const norm = s => String(s || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+const parseDur = iso => { const m = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(iso || ""); return m ? (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0) : 0; };
+const fmt = t => { t = Math.max(0, Math.floor(t)); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); };
+const BAD_VID = /\b(cover|reaction|karaoke|instrumental|inst|live|concert|practice|remix|sped up|slowed|nightcore|1 hour|lesson|tutorial|piano|fancam|8d)\b/i;
+const saveCache = () => store.set("rewind-vids", Music.cache);
+
+async function ytFetch(path, qs, key) {
+  const r = await fetch("https://www.googleapis.com/youtube/v3/" + path + "?" + new URLSearchParams(Object.assign({}, qs, { key: key || Music.key })));
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const reason = (j.error && j.error.errors && j.error.errors[0] && j.error.errors[0].reason) || "";
+    const msg = reason === "quotaExceeded" || reason === "dailyLimitExceeded" ? QUOTA_MSG
+      : reason === "keyInvalid" || r.status === 400 ? "YouTube didn't accept that API key. Check you copied all of it."
+      : r.status === 403 ? `YouTube refused the request (${reason || "403"}). Check that the YouTube Data API is enabled and the key allows this website.`
+      : `YouTube search failed (${r.status}).`;
+    const e = new Error(msg); e.reason = reason; throw e;
+  }
+  return j;
+}
+// find (once) and remember the best embeddable video for a song
+async function findVideo(mode, i) {
+  const k = songKey(mode, i);
+  if (Music.cache[k] && Music.cache[k].id) return Music.cache[k];
+  if (!Music.key) { const e = new Error("Music isn't set up yet."); e.reason = "nokey"; throw e; }
+  const s = song(mode, i);
+  const sr = await ytFetch("search", { part: "snippet", type: "video", videoEmbeddable: "true", maxResults: "8", q: ytQuery(s) });
+  const ids = (sr.items || []).map(x => x.id && x.id.videoId).filter(Boolean);
+  if (!ids.length) throw new Error("Couldn't find this song on YouTube. Skip it.");
+  const vr = await ytFetch("videos", { part: "contentDetails,status,snippet", id: ids.join(",") });
+  const want = norm(s.t.replace(/\([^)]*\)/g, "")), who = norm(s.a.split(/ & | and /)[0]);
+  const list = (vr.items || [])
+    .filter(v => !v.status || v.status.embeddable !== false)
+    .map(v => ({ id: v.id, t: v.snippet.title, c: v.snippet.channelTitle, d: parseDur(v.contentDetails.duration) }))
+    .filter(v => v.d >= 60 && v.d <= 900)
+    .map(v => {
+      const tt = norm(v.t), cc = norm(v.c);
+      const score = (want && tt.includes(want) ? 3 : 0) + (who && (tt.includes(who) || cc.includes(who)) ? 2 : 0)
+        + (/official|m\/?v\b/i.test(v.t) ? 1 : 0) - (BAD_VID.test(v.t) ? 5 : 0) - ids.indexOf(v.id) / 10;
+      return Object.assign(v, { score });
+    })
+    .sort((a, b) => b.score - a.score);
+  if (!list.length) throw new Error("Couldn't find a version of this song that plays here. Skip it.");
+  const hit = { id: list[0].id, d: list[0].d, alts: list.slice(0, 6).map(({ id, t, c, d }) => ({ id, t, c, d })) };
+  Music.cache[k] = hit; saveCache();
+  return hit;
+}
+function loadYT() {
+  if (window.YT && window.YT.Player) return Promise.resolve();
+  if (Music.api) return Music.api;
+  Music.api = new Promise((res, rej) => {
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { if (typeof prev === "function") { try { prev(); } catch (e) {} } res(); };
+    const s = document.createElement("script");
+    s.src = "https://www.youtube.com/iframe_api";
+    s.onerror = () => { Music.api = null; rej(new Error("Couldn't load the YouTube player. Check your internet connection.")); };
+    document.head.appendChild(s);
+    setTimeout(() => { if (!(window.YT && window.YT.Player)) { Music.api = null; rej(new Error("The YouTube player is taking too long to load.")); } }, 15000);
+  });
+  return Music.api;
+}
+function makePlayer() {
+  if (Music.made) return Music.made;
+  Music.made = new Promise(res => {
+    Music.player = new YT.Player("ythost", {
+      width: "100%", height: "100%",
+      playerVars: { playsinline: 1, controls: 1, rel: 0, fs: 0, disablekb: 1, iv_load_policy: 3, modestbranding: 1 },
+      events: {
+        onReady: () => { Music.ready = true; res(Music.player); },
+        onStateChange: e => musicState(e.data),
+        onError: e => musicError(e.data)
+      }
+    });
+  });
+  return Music.made;
+}
+const clipOn = () => !!(S && S.g && S.g.clip === "clip" && !Music.revealed);
+// clips start about a third of the way in, where the chorus usually is
+const startFor = d => S && S.g && S.g.clip === "clip" && d > 120 ? Math.max(0, Math.min(Math.round(d * 0.3), d - CLIP - 5)) : 0;
+function setSt(st, msg) { Music.st = st; Music.msg = msg || ""; if (st === "playing") Music.hint = ""; paintMusic(); }
+
+async function prepare(mode, i) {
+  const tok = ++Music.token;
+  Music.song = mode + ":" + i; Music.ck = songKey(mode, i); Music.vid = null; Music.hint = "";
+  stopTick();
+  if (Music.ready) { try { Music.player.stopVideo(); } catch (e) {} }
+  setSt("loading", "Finding the song…");
+  try {
+    const hit = await findVideo(mode, i);
+    if (tok !== Music.token) return;
+    await loadYT(); await makePlayer();
+    if (tok !== Music.token) return;
+    cue(hit);
+    const g = S && S.g, nx = g && g.deck[g.di];      // look up the next song while this one plays
+    if (nx != null && Music.key) findVideo(g.type, nx).catch(() => {});
+  } catch (e) {
+    if (tok !== Music.token) return;
+    if (e.reason === "nokey") setSt("nokey"); else setSt("error", e.message);
+  }
+}
+function cue(hit, play) {
+  Music.vid = hit.id; Music.dur = hit.d; Music.start = startFor(hit.d);
+  const o = { videoId: hit.id, startSeconds: Music.start };
+  if (play) Music.player.loadVideoById(o); else Music.player.cueVideoById(o);
+  setSt(play ? "buffering" : "ready");
+}
+function musicPlay() {
+  if (!Music.ready || !Music.vid) return false;
+  if (Music.st === "clipdone" || Music.st === "ended") { try { Music.player.seekTo(Music.start, true); } catch (e) {} }
+  try { Music.player.unMute(); Music.player.playVideo(); } catch (e) { return false; }
+  return true;
+}
+function musicToggle() {
+  if (Music.st === "playing") { try { Music.player.pauseVideo(); } catch (e) {} return; }
+  musicPlay();
+}
+function musicReplay() {
+  if (!Music.ready || !Music.vid) return;
+  try { Music.player.seekTo(Music.start, true); Music.player.playVideo(); } catch (e) {}
+}
+// one quiet play from a tap, so later plays started by flipping the phone are allowed
+function unlockAudio() {
+  if (!Music.ready || !Music.vid || Music.st !== "ready") return;
+  Music.unlocking = true;
+  try { Music.player.mute(); Music.player.playVideo(); } catch (e) { Music.unlocking = false; }
+  setTimeout(() => { if (Music.unlocking) { Music.unlocking = false; try { Music.player.pauseVideo(); Music.player.seekTo(Music.start, true); Music.player.unMute(); } catch (e) {} } }, 2500);
+}
+function musicState(s) {
+  // -1 unstarted, 0 ended, 1 playing, 2 paused, 3 buffering, 5 cued
+  if (Music.unlocking) {
+    if (s === 1) { Music.unlocking = false; try { Music.player.pauseVideo(); Music.player.seekTo(Music.start, true); Music.player.unMute(); } catch (e) {} }
+    return;
+  }
+  if (s === 1) { clearTimeout(Music.dog); setSt("playing"); startTick(); }
+  else if (s === 2) { stopTick(); if (Music.st !== "clipdone") setSt("paused"); }
+  else if (s === 0) { stopTick(); setSt("ended"); }
+  else if (s === 3) { if (Music.st !== "playing") setSt("buffering"); }
+}
+function musicError(code) {
+  stopTick(); Music.unlocking = false;
+  const c = Music.cache[Music.ck];
+  if ([2, 5, 100, 101, 150].includes(code) && c) {
+    c.bad = (c.bad || []).concat(Music.vid);
+    const next = (c.alts || []).find(v => !c.bad.includes(v.id));
+    if (next) { c.id = next.id; c.d = next.d; saveCache(); cue(next); Music.hint = "Switched to another video."; paintMusic(); return; }
+  }
+  setSt("error", code === 101 || code === 150 ? "This song won't play outside YouTube. Skip it." : `The player hit a problem (${code}). Try again or skip it.`);
+}
+function startTick() { stopTick(); Music.timer = setInterval(tick, 250); tick(); }
+function stopTick() { clearInterval(Music.timer); Music.timer = null; }
+function tick() {
+  const p = Music.player; if (!p || !p.getCurrentTime) return;
+  let t = 0; try { t = p.getCurrentTime() - Music.start; } catch (e) {}
+  if (clipOn() && t >= CLIP) { try { p.pauseVideo(); } catch (e) {} stopTick(); setSt("clipdone"); return; }
+  paintTime();
+}
+function musicStop() {
+  Music.token++; Music.song = null; Music.vid = null; Music.st = "idle"; Music.sig = ""; stopTick();
+  if (Music.ready) { try { Music.player.stopVideo(); } catch (e) {} }
+}
+function musicSync() {
+  const box = $("#ytbox");
+  const live = S && S.stage === "play" && ROLE !== "guest" && S.g && S.g.cur != null;
+  if (!live) { if (Music.song) musicStop(); box.classList.remove("show"); return; }
+  const id = S.g.type + ":" + S.g.cur;
+  if (Music.song !== id) prepare(S.g.type, S.g.cur);
+  Music.revealed = S.g.phase === "reveal";
+  placeBox(); paintMusic();
+}
+// the player lives outside #app (re-rendering would reload it), laid over the #stage placeholder
+function placeBox() {
+  const box = $("#ytbox"), stage = $("#stage");
+  if (!stage) { box.classList.remove("show"); return; }
+  let x = 0, y = 0, el = stage;
+  while (el) { x += el.offsetLeft; y += el.offsetTop; el = el.offsetParent; }
+  Object.assign(box.style, { left: x + "px", top: y + "px", width: stage.offsetWidth + "px", height: stage.offsetHeight + "px" });
+  box.classList.add("show");
+}
+const playable = () => ["ready", "playing", "paused", "clipdone", "ended", "buffering"].includes(Music.st);
+function paintMusic() {
+  paintCover(); paintMini();
+}
+function paintCover() {
+  const box = $("#ytcover"); if (!box) return;
+  const st = Music.st, rev = Music.revealed, flip = flipMode(), armed = !Flip.needsPerm || Flip.perm || Flip.ok;
+  const sig = [st, rev, Music.msg, Music.hint, flip, armed, clipOn()].join("|");
+  if (sig === Music.sig) { paintTime(); return; }
+  Music.sig = sig;
+  const hide = rev && playable();
+  box.classList.toggle("off", hide);
+  if (hide) return;
+  const tap = playable() && st !== "buffering";
+  let body = "";
+  if (st === "nokey") {
+    body = `<div class="cmsg">Music needs a one-time setup</div><div class="csub">Add a free YouTube key on this phone and songs play right here.</div>
+      <div class="row"><button class="ghost on" data-a="musicSetup">Set up music</button><button class="ghost" data-a="ytm">Play it another way</button></div>`;
+  } else if (st === "error") {
+    body = `<div class="cmsg">${esc(Music.msg)}</div><div class="row wrap" style="justify-content:center">
+      <button class="ghost on" data-a="skip">Skip this song</button><button class="ghost" data-a="mRetry">Try again</button></div>`;
+  } else if (st === "loading" || st === "idle") {
+    body = `<div class="vbtn"><span class="vinyl"></span></div><div class="cmsg">${esc(Music.msg || "Getting the song ready…")}</div>`;
+  } else if (flip && !rev && (st === "ready" || st === "paused" || st === "clipdone" || st === "ended")) {
+    body = `${ICON.flip}<div class="cmsg">${st === "ready" ? "Flip the phone face down to play" : st === "paused" ? "Paused. Flip face down to keep playing" : "Flip face down again to hear it again"}</div>
+      ${armed ? `<div class="csub">${esc(Music.hint || "No peeking: the song plays once the screen is hidden.")}</div>` : `<button class="ghost on" data-a="flipOn">Turn on flip to play</button>`}`;
+  } else {
+    const icon = st === "playing" ? ICON.pause : st === "clipdone" || st === "ended" ? ICON.again : ICON.play;
+    const msg = st === "buffering" ? "Loading…" : st === "playing" ? (clipOn() ? "Listen closely…" : "Playing") : st === "paused" ? "Paused"
+      : st === "clipdone" ? "That's the clip. Tap to hear it again" : st === "ended" ? "Song over. Tap to play it again" : "Tap the record to play";
+    body = `<button class="vbtn" data-a="mToggle" aria-label="${st === "playing" ? "Pause" : "Play"}" ${tap ? "" : "disabled"}><span class="vinyl ${st === "playing" || st === "buffering" ? "spin" : ""}"></span><span class="vl">${icon}</span></button>
+      <div class="cmsg">${msg}</div>${Music.hint ? `<div class="csub">${esc(Music.hint)}</div>` : ""}`;
+  }
+  box.innerHTML = `<div class="ctop"><span class="eyebrow">${rev ? "The song" : "Mystery song"}</span>${tap ? `<span class="ctime" id="ctime"></span><button class="cre" data-a="mReplay" aria-label="Play from the start">↺</button>` : ""}</div>
+    ${body}${tap ? `<div class="cbar"><i id="cprog"></i></div>` : ""}`;
+  paintTime();
+}
+// slim player on the timeline screen, so the song can be paused or replayed while placing it
+function paintMini() {
+  const el = $("#mini"); if (!el) return;
+  const st = Music.st, on = st === "playing";
+  el.innerHTML = playable()
+    ? `<span class="t">Mystery song<small id="mtime"></small></span>
+       <button data-a="mToggle" aria-label="${on ? "Pause" : "Play"}">${on ? ICON.pause : ICON.play}</button><button data-a="mReplay" aria-label="Play from the start">${ICON.again}</button>`
+    : `<span class="t">Mystery song<small>${st === "loading" ? "Getting it ready…" : st === "nokey" ? "Music isn't set up" : st === "error" ? "Couldn't play this one" : ""}</small></span>`;
+  paintTime();
+}
+function paintTime() {
+  const a = $("#ctime"), bar = $("#cprog"), m = $("#mtime");
+  if (!a && !bar && !m) return;
+  let t = 0; try { t = Music.player && Music.player.getCurrentTime ? Music.player.getCurrentTime() - Music.start : 0; } catch (e) {}
+  const total = clipOn() ? CLIP : Math.max(1, Music.dur - Music.start);
+  t = clamp(t || 0, 0, total);
+  const txt = `${fmt(t)} / ${fmt(total)}`;
+  if (a) a.textContent = txt;
+  if (m) m.textContent = txt;
+  if (bar) bar.style.width = (100 * t / total) + "%";
+}
+function onOrient(e) {
+  if (e.beta == null) return;
+  if (!Flip.ok) { Flip.ok = true; Music.sig = ""; paintMusic(); }
+  const b = Math.abs(e.beta);
+  if (!Flip.down && b > 150) { Flip.down = true; flipDown(); }
+  else if (Flip.down && b < 110) Flip.down = false;
+}
+function flipDown() {
+  if (!flipMode() || !S || S.stage !== "play" || ROLE === "guest" || !S.g || S.g.phase !== "listen") return;
+  if (!["ready", "paused", "clipdone", "ended"].includes(Music.st)) return;
+  if (!musicPlay()) return;
+  clearTimeout(Music.dog);
+  // browsers can refuse to start sound without a tap; fall back to tapping the record
+  Music.dog = setTimeout(() => {
+    if (Music.st !== "playing" && Music.st !== "buffering") {
+      Flip.blocked = true; Music.hint = "This browser wants a tap to start the sound."; Music.sig = ""; paintMusic();
+    }
+  }, 3000);
+}
+async function armFlip() {
+  unlockAudio();
+  if (Flip.needsPerm) {
+    try { Flip.perm = (await DeviceOrientationEvent.requestPermission()) === "granted"; } catch (e) { Flip.perm = false; }
+    if (!Flip.perm) { Flip.blocked = true; toast("No motion access, so tap the record to play instead."); }
+  }
+  Music.sig = ""; paintMusic();
+}
+window.addEventListener("deviceorientation", onOrient);
+window.addEventListener("resize", () => { if ($("#stage")) placeBox(); });
+
+/* ================= views: pieces ================= */
+const modeCard = k => {
+  const m = MODES[k];
+  return `<button class="mode" style="--mc:${m.color}" data-a="pick" data-v="${k}">
+    <span class="swatch"></span><span class="blob"></span>
+    <span class="name">${m.name}</span>
+    <span class="pitch">${m.pitch}</span>
+    <span class="meta"><span class="pill">${spanOf(k)}</span><span class="pill">${SONGS[k].length} songs</span><span class="pill">1+ players</span></span>
+  </button>`;
+};
+const rulesBlock = () => `<ol class="rules">${RULES.map(r => `<li><span>${r}</span></li>`).join("")}</ol>`;
+const wait = t => `<div class="wait">${t}</div>`;
+const seg = (k, opts, cur, editable, fmtf, off) => `<div class="seg" role="group">${opts.map(o =>
+  `<button data-a="set" data-k="${k}" data-v="${o}" aria-pressed="${String(o) === String(cur)}" ${editable && !(off && off(o)) ? "" : "disabled"}>${fmtf ? fmtf(o) : o}</button>`).join("")}</div>`;
+function splitTeams(list) { shuffle(list.slice()).forEach((p, i) => p.team = i % 2); }
+function settingsBlock(mode, set, editable, count) {
+  const r = [
+    ["Play as", seg("play", OPTS.play, set.play, editable, o => ({ solo: "Versus", teams: "Teams", coop: "Co-op" })[o], o => o === "teams" && count < 4 && set.play !== "teams")],
+    ["Songs to win", seg("goal", OPTS.goal, set.goal, editable)]
+  ];
+  if (set.play === "coop") r.push(["Lives", seg("lives", OPTS.lives, set.lives, editable)]);
+  r.push(["Each song", seg("clip", OPTS.clip, set.clip, editable, o => o === "clip" ? CLIP + "s clip" : "Full song")]);
+  r.push(["Exact-year bonus", seg("bonus", OPTS.bonus, set.bonus, editable, o => o ? "On" : "Off")]);
+  const n = poolOf(mode, set.eras).length;
+  const eras = `<div class="stack"><div class="row"><span class="eyebrow grow">Eras</span><span class="faint small">${n} songs</span></div>
+    <div class="chips">${MODES[mode].eras.map(([k, l]) => `<button class="chip" data-a="era" data-v="${k}" aria-pressed="${set.eras.includes(k)}" ${editable ? "" : "disabled"}>${l}</button>`).join("")}</div></div>`;
+  return `<div class="stack">${r.map(([l, c]) => `<div class="row wrap"><span class="eyebrow grow">${l}</span>${c}</div>`).join("")}<hr class="sep">${eras}</div>`;
+}
+function teamNamesBlock(editable, canShuffle) {
+  const row = i => `<div class="row"><span class="teambadge t${i}">${i ? "B" : "A"}</span>${editable
+    ? `<input class="inp grow" id="tn-${i}" maxlength="16" autocomplete="off" value="${esc(U.drafts["tn-" + i] ?? teamName(i))}" aria-label="Team ${i ? "B" : "A"} name">`
+    : `<span class="grow" style="font-weight:800;font-size:17px">${esc(teamName(i))}</span>`}</div>`;
+  return `<div class="card stack"><div class="row"><span class="eyebrow grow">Teams</span>
+    ${canShuffle ? `<button class="ghost" data-a="shuffleTeams">🔀 Shuffle</button>` : ""}${editable ? `<button class="ghost" data-a="tnRoll">🎲 New names</button>` : ""}</div>${row(0)}${row(1)}</div>`;
+}
+function commitTeamNames() {
+  const cur = [0, 1].map(teamName);
+  const names = [0, 1].map(i => cleanName(U.drafts["tn-" + i] ?? cur[i]) || cur[i]);
+  delete U.drafts["tn-0"]; delete U.drafts["tn-1"];
+  if (names[0] === cur[0] && names[1] === cur[1]) return;
+  if (S) act({ type: "teamNames", val: names });
+  else { U.teamNames = names; store.set("rewind-teamnames", names); render(); }
+}
+function topbar(info) {
+  return `<div class="gtop"><span class="mchip">${MODES[S.mode].name}</span><span class="info">${info}</span>
+    <button class="icon-btn" data-a="rules" aria-label="Rules">?</button><button class="icon-btn" data-a="menu" aria-label="Menu">⋯</button></div>` + netbar();
+}
+function netbar() {
+  if (ROLE === "guest" && Net.lost) return `<div class="netbar"><span class="grow">Lost connection to the host.</span><button class="ghost" data-a="reconnect">Reconnect</button></div>`;
+  if (ROLE === "host" && S.g) {
+    const off = S.g.roster.filter(p => !online(p) && p !== ME);
+    if (off.length) return `<div class="netbar"><span class="grow">${off.map(nm).map(esc).join(", ")} ${off.length > 1 ? "are" : "is"} offline. You can play their turns, or remove them in ⋯.</span></div>`;
+  }
+  return "";
+}
+const musicCard = () => `<button class="card musiccard" data-a="musicSetup"><span class="ic" aria-hidden="true">🎵</span>
+  <span class="grow"><b>${Music.key ? "Music is set up" : "Set up music"}</b><span class="small dim">${Music.key ? "Songs play through YouTube on this phone" : "One-time step on the phone that plays the songs"}</span></span>
+  <span class="faint" aria-hidden="true">›</span></button>`;
+const inGame = () => ROLE === "pass" || S.g.roster.includes(ME);
+const scoreLine = g => g.play === "coop" ? `❤️ ${g.lives} · ${g.sides[0].line.length}/${g.goal} songs`
+  : g.sides.map(s => `${sideName(g, s)} ${s.line.length}`).join(" · ");
+function songCard(g, i, cls, tag) {
+  const s = song(g.type, i);
+  return `<div class="tc ${cls || ""}"><span class="yr">${s.y}</span><span class="who"><span class="ti">${esc(s.t)}</span><span class="ar">${esc(s.a)}</span></span>${tag ? `<span class="tag">${tag}</span>` : ""}</div>`;
+}
+// a timeline, oldest first; o.gaps adds tap targets, o.aim marks the pick, o.res marks the result
+function timeline(g, line, o) {
+  let h = `<div class="tl"><div class="end">▲ Oldest</div>`;
+  for (let p = 0; p <= line.length; p++) {
+    if (o.aim === p) h += `<div class="tc mys"><span class="yr">?</span><span class="who"><span class="ti">Mystery song</span><span class="ar">${o.gaps ? "Your pick. Tap another gap to move it" : "Their pick so far"}</span></span></div>`;
+    else if (o.gaps) {
+      const lbl = !line.length ? "Here" : p === 0 ? `before ${yr(g, line[0])}` : p === line.length ? `after ${yr(g, line[p - 1])}` : `between ${yr(g, line[p - 1])} and ${yr(g, line[p])}`;
+      h += `<button class="tg" data-a="aim" data-v="${p}" aria-label="Place it ${lbl}"><span>＋ Here</span></button>`;
+    }
+    if (o.res && !o.res.ok && o.res.pos === p) h += songCard(g, o.res.song, "bad", "✗");
+    if (p < line.length) {
+      const i = line[p], r = o.res;
+      h += songCard(g, i, r && i === r.song ? "good" : r && i === r.extra ? "bonus" : "", r && i === r.song ? "✓" : r && i === r.extra ? "🎁" : "");
+    }
+  }
+  return h + `<div class="end">▼ Newest</div></div>`;
+}
+
+/* ================= views: screens ================= */
+function homeView() {
+  const sv = store.get("rewind-save", null);
+  const resumable = sv && Date.now() - sv.t < 12 * 3600e3 && (sv.role === "guest" ? sv.code : sv.S);
+  const resumeMode = resumable ? (sv.role === "guest" ? sv.mode : sv.S.mode) : null;
+  return `<section class="screen">
+    <div class="brand"><h1>Re<i>wind</i></h1>
+      <div class="ko">Hear the song. Guess the year. Build your timeline.</div></div>
+    ${resumable ? `<button class="cta alt" data-a="resume">Resume ${MODES[resumeMode] ? MODES[resumeMode].name : ""} ${sv.role === "pass" ? "game" : "room"}<span class="sub">${sv.role === "guest" ? "Rejoin room " + esc(sv.code) : sv.role === "host" ? "Reopen your room " + esc(sv.S.code) : "Pick up where you left off"}</span></button>` : ""}
+    <div class="eyebrow">Pick a playlist</div>
+    <div class="modes">${Object.keys(MODES).map(modeCard).join("")}</div>
+    ${musicCard()}
+    <div class="bottom"><button class="cta alt" data-a="goJoin">Join a room<span class="sub">Got a 4-letter code from a friend?</span></button></div>
+  </section>`;
+}
+function modeView() {
+  const k = U.pick, m = MODES[k];
+  return `<section class="screen">
+    <button class="topback" data-a="home">← All playlists</button>
+    <div><div class="display" style="font-size:clamp(52px,17vw,80px);color:var(--accent)">${m.name}</div></div>
+    <div class="dim" style="font-size:16px;line-height:1.4">${m.pitch}</div>
+    <div class="card stack"><div class="eyebrow">How to play</div>${rulesBlock()}</div>
+    ${Music.key ? "" : musicCard()}
+    <div class="bottom">
+      <button class="cta" data-a="goSetup">Play on one phone<span class="sub">It plays the music and gets passed around</span></button>
+      <button class="cta alt" data-a="goHost" ${RTC_OK ? "" : "disabled"}>Start a room<span class="sub">Your phone plays the music, everyone places songs on their own</span></button>
+      ${RTC_OK ? "" : `<div class="faint small center">${NO_RTC}</div>`}
+    </div>
+  </section>`;
+}
+function setupView() {
+  const k = U.pick, m = MODES[k], set = U.sets[k], pp = U.pp;
+  const teamsOn = set.play === "teams", prob = startProblem(k, set, pp);
+  return `<section class="screen">
+    <button class="topback" data-a="pick" data-v="${k}">← ${m.name} rules</button>
+    <h2 class="display" style="font-size:34px">Who's playing?</h2>
+    <div class="row"><input class="inp grow" id="newname" maxlength="16" placeholder="Add a name" autocomplete="off" enterkeyhint="done" value="${esc(U.drafts.newname || "")}">
+      <button class="ghost on" data-a="addName" style="padding:15px 18px">Add</button></div>
+    <div class="plist">${pp.map(p => `<div class="p"><span class="nm">${esc(p.name)}</span>
+      ${teamsOn ? `<button class="teambadge t${p.team || 0}" data-a="swapTeam" data-v="${p.id}" aria-label="${esc(p.name)} is on ${esc(teamName(p.team ? 1 : 0))}. Tap to switch.">${esc(teamName(p.team ? 1 : 0))} 🔀</button>` : ""}
+      <button class="x" data-a="rmName" data-v="${p.id}" aria-label="Remove ${esc(p.name)}">×</button></div>`).join("") || `<div class="faint small center">Add 2 or more players for versus, 4 for teams, or just you for co-op.</div>`}</div>
+    ${teamsOn ? `<div class="faint small">Tap a team to move that player to the other side.</div>` : ""}
+    <div class="card">${settingsBlock(k, set, true, pp.length)}</div>
+    ${teamsOn ? teamNamesBlock(true, true) : ""}
+    <div class="bottom">
+      ${pp.length && prob ? `<div class="err">${prob}.</div>` : ""}
+      <button class="cta" data-a="startPass" ${prob ? "disabled" : ""}>Start ${m.name}</button>
+    </div>
+  </section>`;
+}
+function hostView() {
+  const m = MODES[U.pick];
+  return `<section class="screen">
+    <button class="topback" data-a="pick" data-v="${U.pick}">← ${m.name} rules</button>
+    <h2 class="display" style="font-size:38px">Start a room</h2>
+    <div class="dim">You'll get a 4-letter code. Friends open this page on their phones and type it in. Keep this screen open while you play: your phone runs the game and plays the music.</div>
+    <div class="field"><label for="hostname">Your name</label><input class="inp" id="hostname" maxlength="16" autocomplete="off" value="${esc(U.drafts.hostname ?? U.name)}" placeholder="Your name"></div>
+    ${U.err ? `<div class="err">${esc(U.err)}</div>` : ""}
+    <div class="bottom"><button class="cta" data-a="createRoom">Create ${m.name} room</button></div>
+  </section>`;
+}
+function joinView() {
+  return `<section class="screen">
+    <button class="topback" data-a="home">← Back</button>
+    <h2 class="display" style="font-size:38px">Join a room</h2>
+    <div class="field"><label for="joincode">Room code</label><input class="inp code" id="joincode" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" value="${esc(U.drafts.joincode ?? U.joinCode)}" placeholder="ABCD"></div>
+    <div class="field"><label for="joinname">Your name</label><input class="inp" id="joinname" maxlength="16" autocomplete="off" value="${esc(U.drafts.joinname ?? U.name)}" placeholder="Your name"></div>
+    ${U.err ? `<div class="err">${esc(U.err)}</div>` : ""}
+    <div class="bottom">${RTC_OK ? "" : `<div class="err">${NO_RTC}</div>`}<button class="cta" data-a="joinRoom" ${RTC_OK ? "" : "disabled"}>Join</button></div>
+  </section>`;
+}
+function connectingView() {
+  return `<section class="screen" style="justify-content:center">${wait(esc(U.net || "Connecting…"))}
+    <button class="link" data-a="home">Cancel</button></section>`;
+}
+function lobbyView() {
+  const m = MODES[S.mode], set = S.sets[S.mode], host = ROLE === "host";
+  const teamsOn = set.play === "teams", prob = startProblem(S.mode, set, S.players);
+  return `<section class="screen">
+    <div class="gtop"><span class="eyebrow grow">Room code</span><button class="ghost" data-a="share">Share invite</button>${host ? `<button class="ghost" data-a="closeRoom">Close</button>` : `<button class="ghost" data-a="leave">Leave</button>`}</div>
+    <div class="room-code">${esc(S.code)}</div>
+    <div class="faint small center">Others join by opening this page and tapping <b>Join a room</b>.</div>
+    ${netbar()}
+    <div class="card tint stack">
+      <div class="row"><div class="grow"><div class="eyebrow">Tonight's playlist</div><div class="display" style="font-size:40px;color:var(--accent)">${m.name}</div></div>
+        ${host ? `<button class="ghost" data-a="modePick">Change</button>` : ""}</div>
+      <div class="dim" style="line-height:1.4">${m.pitch}</div>
+      <hr class="sep"><div class="eyebrow">Quick rules</div>${rulesBlock()}
+    </div>
+    ${host && !Music.key ? musicCard() : ""}
+    <div class="row"><span class="eyebrow grow">Players (${S.players.length})</span>${teamsOn ? `<span class="faint small">${host ? "Tap a team to move a player" : "Tap your team to switch"}</span>` : ""}</div>
+    <div class="plist">${S.players.map(p => `<div class="p"><span class="dot ${p.on ? "" : "off"}"></span>
+      <span class="nm">${esc(p.name)} ${p.id === S.hostId ? "👑" : ""} ${p.id === ME ? `<span class="you">(you)</span>` : ""}</span>
+      ${teamsOn ? (host || p.id === ME
+        ? `<button class="teambadge t${p.team || 0}" data-a="team" data-v="${p.id}" aria-label="${esc(p.name)} is on ${esc(teamName(p.team ? 1 : 0))}. Tap to switch.">${esc(teamName(p.team ? 1 : 0))} 🔀</button>`
+        : `<span class="teambadge t${p.team || 0}">${esc(teamName(p.team ? 1 : 0))}</span>`) : ""}
+      ${host && p.id !== S.hostId ? `<button class="x" data-a="kick" data-v="${p.id}" aria-label="Remove ${esc(p.name)}">×</button>` : ""}</div>`).join("")}</div>
+    <div class="card">${settingsBlock(S.mode, set, host, S.players.length)}</div>
+    ${teamsOn ? teamNamesBlock(host, host) : ""}
+    <div class="bottom">
+      ${prob ? `<div class="err">${prob}.</div>` : ""}
+      ${host ? `<button class="cta" data-a="start" ${prob ? "disabled" : ""}>Start ${m.name}</button>`
+             : wait(`Waiting for ${esc(nm(S.hostId))} to start`)}
+    </div>
+  </section>`;
+}
+
+/* ---------- a turn ---------- */
+function gameView() {
+  const g = S.g, s = side(g), name = sideName(g, s), me = mySide(s);
+  const you = ROLE !== "pass" && s.ids.includes(ME);
+  const who = g.play === "coop" ? "Your timeline" : you ? (g.play === "teams" ? esc(name) + " (you)" : "Your turn") : esc(name) + (g.play === "teams" ? "" : "'s turn");
+  let h = topbar(scoreLine(g)) + `<div class="turn"><div class="eyebrow">Song ${g.turn}</div><div class="capname">${who}</div></div>`;
+
+  if (g.phase === "listen") {
+    // the music phone shows the song first; the timeline comes after "Place it"
+    const placing = U.placing === turnKey(g) || (ROLE === "guest" && me);
+    if (isHostDevice() && !placing) {
+      h += `<div class="stage" id="stage"></div>`;
+      if (me) h += `<div class="dock"><button class="cta" data-a="goPlace">Place it</button></div>`;
+      else h += `<div class="dock">${wait(`${esc(name)} is placing the song on their phone`)}</div>`;
+      return h;
+    }
+    if (me) {
+      if (isHostDevice()) h += `<div class="minibar" id="mini"></div>`;
+      h += timeline(g, s.line, { gaps: true, aim: g.aim });
+      h += lockDock(g);
+      return h;
+    }
+    // someone else is placing: watch their timeline
+    h += `<div class="stage mini"><div class="cover"><div class="vbtn"><span class="vinyl spin"></span></div><div class="cmsg">Playing on ${esc(nm(S.hostId))}'s phone</div></div></div>`;
+    h += `<p class="hint"><b>${esc(name)}</b> is placing it. Shout your advice!</p>` + timeline(g, s.line, { aim: g.aim });
+    return h;
+  }
+
+  // reveal: the real video (on the music phone), the answer, one button
+  const r = g.res, sg = song(g.type, r.song), done = gameDone(g);
+  h += isHostDevice() ? `<div class="stage" id="stage"></div>` : "";
+  h += `<div class="reveal ${r.ok ? "ok" : "bad"}"><div class="ryear">${sg.y}</div><div class="rt">${esc(sg.t)}</div><div class="ra">${esc(sg.a)}</div></div>`;
+  let big, sub;
+  if (r.exact) {
+    big = "Spot on!";
+    sub = r.life > 0 ? "Right place and the exact year: +1 ❤️" : r.extra != null ? `Exact year! Bonus song: ${song(g.type, r.extra).t} (${yr(g, r.extra)})` : "Right place and the exact year";
+  } else if (r.ok) {
+    big = "Right!"; sub = (g.play === "coop" ? "It joins your timeline" : `${name} keeps it`) + (r.call != null ? ` · the year guess was ${r.call}` : "");
+  } else {
+    big = "Not quite"; sub = `It came out in ${sg.y}` + (r.life < 0 ? " · −1 ❤️" : "");
+  }
+  h += `<div class="banner ${r.ok ? "good" : "bad"}"><span class="big">${big}</span>${esc(sub)}</div>`;
+  if (isHostDevice() && Music.cache[Music.ck] && (Music.cache[Music.ck].alts || []).length > 1) h += `<button class="link" data-a="alts" style="align-self:center">Wrong video? Pick another</button>`;
+  const next = g.sides[(g.at + 1) % g.sides.length];
+  h += `<div class="dock"><button class="cta" data-a="next">${done ? "See results" : g.play === "coop" ? "Next song" : `Next: ${esc(sideName(g, next))}`}</button></div>`;
+  h += `<div class="eyebrow">${g.play === "coop" ? "Your timeline" : esc(name) + "'s timeline"} · ${s.line.length}/${g.goal}</div>` + timeline(g, s.line, { res: r });
+  return h;
+}
+function lockDock(g) {
+  let h = `<div class="dock">`;
+  if (g.bonus && g.aim != null) {
+    const [lo, hi] = yearRange(g, g.aim);
+    if (!U.yrOn) h += `<button class="ghost" data-a="yrOn">🎯 Bonus: call the exact year</button>`;
+    else h += `<div class="yearcall"><span class="eyebrow grow">Exact year</span>
+        <button class="step" data-a="yr" data-v="-1" aria-label="A year earlier">−</button>
+        <input class="inp yr" id="yearcall" inputmode="numeric" maxlength="4" autocomplete="off" value="${esc(U.drafts.yearcall ?? "")}" aria-label="Exact year, ${lo} to ${hi}">
+        <button class="step" data-a="yr" data-v="1" aria-label="A year later">+</button>
+        <button class="x" data-a="yrOff" aria-label="Skip the year bonus">×</button></div>
+      <div class="faint small center">Somewhere from ${lo} to ${hi}</div>`;
+  }
+  h += `<button class="cta" data-a="lock" ${g.aim == null ? "disabled" : ""}>${g.aim == null ? "Tap a gap first" : "Lock it in"}</button></div>`;
+  return h;
+}
+
+/* ---------- game over ---------- */
+function overView() {
+  const g = S.g, m = MODES[S.mode];
+  let head, sub, good = true, line = null, rows = "";
+  if (g.play === "coop") {
+    const s = g.sides[0], won = s.line.length >= g.goal;
+    good = won; head = won ? "You did it!" : g.out ? "Out of songs" : "Out of lives";
+    sub = `${s.line.length} song${s.line.length === 1 ? "" : "s"} in your timeline`; line = s.line;
+  } else {
+    const st = g.sides.map((s, i) => ({ i, n: s.line.length })).sort((a, b) => b.n - a.n), top = st[0];
+    const tie = st.length > 1 && st[1].n === top.n;
+    head = tie ? "It's a tie!" : `${sideName(g, g.sides[top.i])} wins!`;
+    sub = (g.out ? "We ran out of songs. " : "") + `${top.n} song${top.n === 1 ? "" : "s"} in the timeline`;
+    if (!tie) line = g.sides[top.i].line;
+    rows = `<div class="stack">${st.map((r, k) => `<div class="standing ${k === 0 && !tie ? "win" : ""}"><span class="n">${k + 1}</span><span class="grow">${esc(sideName(g, g.sides[r.i]))}</span><span class="v">${r.n}</span></div>`).join("")}</div>`;
+  }
+  const host = isHostDevice();
+  return `<section class="screen">
+    <div class="center"><span class="mchip">${m.name}</span></div>
+    <div class="banner ${good ? "good" : "bad"}"><span class="big">${esc(head)}</span>${esc(sub)}</div>
+    ${rows}
+    ${line ? `<div class="eyebrow">${g.play === "coop" ? "Your timeline" : "Winning timeline"}</div>${timeline(g, line, {})}` : ""}
+    <div class="dock">
+      ${host ? `<button class="cta" data-a="again">Play ${m.name} again</button>
+                <button class="cta alt" data-a="${ROLE === "pass" ? "changeGame" : "lobby"}">${ROLE === "pass" ? "Pick another playlist" : "Back to the lobby"}</button>`
+             : wait(`Waiting for ${esc(nm(S.hostId))} to pick what's next`)}
+      ${ROLE === "guest" ? `<button class="link" data-a="leave">Leave room</button>` : ""}
+    </div>
+  </section>`;
+}
+
+/* ---------- sheets ---------- */
+function musicSheet() {
+  const origin = location.origin && location.origin !== "null" ? location.origin : "https://ykbarros.github.io";
+  const saved = Object.keys(Music.cache).length, km = U.keyMsg;
+  return `<div class="display" style="font-size:32px">Music</div>
+    <div class="dim" style="line-height:1.45">Rewind plays each song through YouTube's player. If this browser is signed in to YouTube with Premium, songs should play without ads (some browsers' privacy settings hide your sign-in from the player).</div>
+    <div class="dim" style="line-height:1.45">To find the songs, Rewind needs a free <b>YouTube API key</b>. You only make it once, on the phone that plays the music. It takes about 5 minutes:</div>
+    <ol class="rules steps">
+      <li><span>Open <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">console.cloud.google.com</a> and sign in with any Google account.</span></li>
+      <li><span>Create a project (any name, like <b>Rewind</b>).</span></li>
+      <li><span>Go to <b>APIs &amp; Services → Library</b>, search <b>YouTube Data API v3</b> and tap <b>Enable</b>.</span></li>
+      <li><span>Go to <b>APIs &amp; Services → Credentials → Create credentials → API key</b> and copy the key.</span></li>
+      <li><span>Recommended: edit the key, choose <b>Websites</b> and add <b>${esc(origin)}/*</b>, then limit it to the YouTube Data API v3.</span></li>
+    </ol>
+    <div class="field"><label for="ytkey">Your API key</label><input class="inp" id="ytkey" autocomplete="off" spellcheck="false" placeholder="AIza…" value="${esc(U.drafts.ytkey ?? Music.key)}"></div>
+    ${km ? `<div class="${km.ok ? "ok-t" : "err"}">${esc(km.text)}</div>` : ""}
+    <div class="row"><button class="cta grow" data-a="keySave">Save &amp; test</button>${Music.key ? `<button class="ghost" data-a="keyClear">Remove</button>` : ""}</div>
+    <div class="faint small" style="line-height:1.45">The key is saved only in this browser and only ever sent to Google. Each new song uses one search; the free daily limit covers about 100 new songs a day, and songs you've heard before are remembered (${saved} saved).</div>
+    ${saved ? `<button class="link" data-a="forgetVids" style="align-self:flex-start">Forget saved videos</button>` : ""}
+    <button class="link" data-a="close">Done</button>`;
+}
+function sheetView() {
+  const s = U.sheet; if (!s) return "";
+  let inner = "";
+  if (s.k === "rules") {
+    inner = `<div class="display" style="font-size:34px;color:${MODES[s.mode].color}">How to play</div>${rulesBlock()}<button class="cta" data-a="close">Got it</button>`;
+  } else if (s.k === "menu") {
+    const g = S && S.g, playing = g && S.stage === "play";
+    const off = ROLE === "host" && playing ? g.roster.filter(p => p !== ME) : [];
+    inner = `<div class="eyebrow">Menu</div>
+      ${playing ? `<button class="cta alt" data-a="lines">See all timelines</button>` : ""}
+      <button class="cta alt" data-a="rules">How to play</button>
+      ${isHostDevice() ? `<button class="cta alt" data-a="musicSetup">Music setup</button>` : ""}
+      ${isHostDevice() && playing && g.phase === "listen" ? `<button class="cta alt" data-a="skip">Skip this song</button>` : ""}
+      ${S.play === "room" ? `<button class="cta alt" data-a="share">Share invite link (${esc(S.code)})</button>` : ""}
+      ${off.length ? `<div class="eyebrow">Remove a player from this game</div><div class="chips">${off.map(p => `<button class="chip" data-a="drop" data-v="${p}">${online(p) ? "" : "⚪ "}${esc(nm(p))}</button>`).join("")}</div>` : ""}
+      ${ROLE === "pass" ? `<button class="cta alt" data-a="endPass">End game</button>` : ""}
+      ${ROLE === "host" ? `<button class="cta alt" data-a="lobby">End game, back to lobby</button><button class="cta alt" data-a="closeRoom">Close the room</button>` : ""}
+      ${ROLE === "guest" ? `<button class="cta alt" data-a="leave">Leave room</button>` : ""}
+      <button class="link" data-a="close">Close</button>`;
+  } else if (s.k === "lines") {
+    const g = S.g;
+    inner = `<div class="eyebrow">Timelines</div>${g.sides.map(sd => `<div class="row"><span class="display grow" style="font-size:24px;color:var(--accent)">${esc(sideName(g, sd))}</span><span class="faint small">${sd.line.length}/${g.goal}</span></div>${timeline(g, sd.line, {})}`).join(`<hr class="sep">`)}
+      <button class="link" data-a="close">Close</button>`;
+  } else if (s.k === "modes") {
+    inner = `<div class="eyebrow">Pick a playlist</div><div class="modes">${Object.keys(MODES).map(k => modeCard(k).replace('data-a="pick"', 'data-a="setMode"')).join("")}</div>
+      <button class="link" data-a="close">Cancel</button>`;
+  } else if (s.k === "music") {
+    inner = musicSheet();
+  } else if (s.k === "alts") {
+    const c = Music.cache[Music.ck] || { alts: [] };
+    inner = `<div class="eyebrow">Pick the right video</div>${c.alts.map(v => `<button class="alt ${v.id === Music.vid ? "cur" : ""}" data-a="useAlt" data-v="${esc(v.id)}">${esc(v.t)}<small>${esc(v.c)} · ${fmt(v.d)}${(c.bad || []).includes(v.id) ? " · didn't play" : ""}</small></button>`).join("")}
+      <div class="faint small">Your pick is remembered for next time.</div><button class="link" data-a="close">Cancel</button>`;
+  } else if (s.k === "ytm") {
+    const g = S && S.g, sg = g && g.cur != null ? song(g.type, g.cur) : null;
+    inner = `<div class="q" style="font-size:22px;font-weight:800">Play it in YouTube Music</div>
+      <div class="dim" style="line-height:1.45">This opens the song by name, so it gives the answer away. Hand the phone to someone who isn't guessing, or flip it over once it plays.</div>
+      ${sg ? `<a class="cta" href="https://music.youtube.com/search?q=${encodeURIComponent(sg.a + " " + sg.t)}" target="_blank" rel="noopener" data-a="close">Open YouTube Music</a>` : ""}
+      <button class="cta alt" data-a="close">Cancel</button>`;
+  } else if (s.k === "ask") {
+    inner = `<div class="q" style="font-size:22px;font-weight:800">${esc(s.text)}</div>
+      <button class="cta" data-a="${s.then}" ${s.v ? `data-v="${esc(s.v)}"` : ""}>${esc(s.yes)}</button>
+      <button class="cta alt" data-a="close">Cancel</button>`;
+  }
+  return `<div class="sheet" data-a="scrim"><div class="in" role="dialog" aria-modal="true">${inner}</div></div>`;
+}
+
+/* ================= render ================= */
+function view() {
+  if (!S) return ({ home: homeView, mode: modeView, setup: setupView, host: hostView, join: joinView, connecting: connectingView }[U.screen] || homeView)();
+  if (S.stage === "lobby") return lobbyView();
+  if (S.stage === "over") return overView();
+  return `<section class="screen">${gameView()}</section>`;
+}
+let lastKey = "";
+function render() {
+  const mode = (S && S.mode) || (U.screen !== "home" && U.screen !== "join" ? U.pick : "") || "";
+  document.body.dataset.mode = mode;
+  const g = S && S.stage === "play" && S.g;
+  if (g) {
+    const tk = turnKey(g) + g.phase;           // a new turn starts without a year guess
+    if (U.yrKey !== tk) { U.yrKey = tk; U.yrOn = false; delete U.drafts.yearcall; }
+  }
+  const ae = document.activeElement;
+  const keep = ae && ae.id && ae.tagName === "INPUT" ? { id: ae.id, s: ae.selectionStart, e: ae.selectionEnd } : null;
+  // only animate the screen when the "page" actually changes
+  const key = S ? [S.stage, g && g.phase, g && g.turn, g && U.placing === turnKey(g)].join("|") : U.screen + U.pick;
+  app.innerHTML = view();
+  if (key === lastKey) app.querySelectorAll(".screen").forEach(el => el.style.animation = "none");
+  lastKey = key;
+  layer.innerHTML = sheetView();
+  if (keep) { const el = document.getElementById(keep.id); if (el) { el.focus({ preventScroll: true }); try { el.setSelectionRange(keep.s, keep.e); } catch (e) {} } }
+  musicSync();
+  if (S && S.stage === "over" && !U.cele) {
+    U.cele = true; const og = S.g;
+    if (og.play !== "coop" || og.sides[0].line.length >= og.goal) confetti();
+  }
+  if (!S || S.stage !== "over") U.cele = false;
+}
+
+/* ================= toast + confetti ================= */
+let toastT;
+function toast(msg) {
+  const old = document.querySelector(".toast"); if (old) old.remove();
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t);
+  clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 2600);
+}
+function confetti() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const c = document.createElement("canvas"); c.className = "confetti"; document.body.appendChild(c);
+  const x = c.getContext("2d"), W = c.width = innerWidth, H = c.height = innerHeight;
+  const cols = ["#ff4fa0", "#f5b301", "#4d8dff", "#25c281", "#9b6bff"];
+  const P = Array.from({ length: 140 }, () => ({ x: W / 2 + (Math.random() - .5) * 80, y: H * .35, vx: (Math.random() - .5) * 14, vy: -Math.random() * 14 - 4, s: 5 + Math.random() * 6, r: Math.random() * 6, c: cols[rnd(5)] }));
+  let f = 0;
+  (function tickC() {
+    x.clearRect(0, 0, W, H);
+    P.forEach(p => { p.vy += .35; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += .15; x.save(); x.translate(p.x, p.y); x.rotate(p.r); x.fillStyle = p.c; x.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); x.restore(); });
+    if (++f < 150) requestAnimationFrame(tickC); else c.remove();
+  })();
+}
+
+/* ================= input handling ================= */
+function inviteLink() {
+  const u = new URL(location.href); u.search = ""; u.hash = "";
+  u.searchParams.set("room", S.code);
+  ["net", "peerhost"].forEach(k => { if (params.get(k)) u.searchParams.set(k, params.get(k)); });
+  return u.toString();
+}
+async function share() {
+  const url = inviteLink();
+  try {
+    if (navigator.share) { await navigator.share({ title: "Rewind", text: `Join my Rewind room: ${S.code}`, url }); return; }
+  } catch (e) { if (e && e.name === "AbortError") return; }
+  try { await navigator.clipboard.writeText(url); toast("Invite link copied"); }
+  catch (e) { prompt("Copy this link:", url); }
+}
+function addName() {
+  const n = cleanName(U.drafts.newname);
+  if (!n) return;
+  if (U.pp.some(p => p.name.toLowerCase() === n.toLowerCase())) { toast(n + " is already playing"); return; }
+  const t0 = U.pp.filter(p => !p.team).length;
+  U.pp.push({ id: uid(), name: n, team: t0 > U.pp.length - t0 ? 1 : 0 });
+  U.drafts.newname = ""; render();
+  const el = $("#newname"); if (el) el.focus();
+}
+async function createRoom() {
+  const name = cleanName(U.drafts.hostname ?? U.name);
+  if (!name) { U.err = "Enter your name first."; render(); return; }
+  U.name = name; store.set("rewind-name", name);
+  U.err = ""; U.net = "Opening a room…"; U.screen = "connecting"; render();
+  const tok = U.conn = (U.conn || 0) + 1;
+  try {
+    const code = await hostRoom(newCode());
+    if (tok !== U.conn) { try { Net.peer.destroy(); } catch (e) {} Net.peer = null; return; }
+    ROLE = "host"; ME = uid();
+    S = { v: 0, play: "room", code, mode: U.pick, hostId: ME, stage: "lobby", sets: JSON.parse(JSON.stringify(U.sets)), teamNames: U.teamNames.slice(),
+          players: [{ id: ME, name, team: 0, on: true }], g: null };
+    commit();
+  } catch (e) { if (tok !== U.conn) return; U.screen = "host"; U.err = e.message; render(); }
+}
+async function doJoin(code, name) {
+  U.err = ""; U.net = `Joining room ${code}…`; U.screen = "connecting"; render();
+  const tok = U.conn = (U.conn || 0) + 1;
+  try {
+    await joinRoom(code, name);
+    if (tok !== U.conn) { goHome(); return; }
+    ROLE = "guest"; U.screen = "home";
+    store.set("rewind-save", { role: "guest", code, mode: S && S.mode, t: Date.now() });
+    render();
+  } catch (e) { if (tok !== U.conn) return; U.screen = "join"; U.err = e.message; render(); }
+}
+async function resume() {
+  const sv = store.get("rewind-save", null); if (!sv) return;
+  if (sv.role === "pass") { ROLE = "pass"; ME = null; S = sv.S; render(); return; }
+  if (sv.role === "guest") { U.joinCode = sv.code; return doJoin(sv.code, U.name || "Player"); }
+  U.net = `Reopening room ${sv.S.code}…`; U.screen = "connecting"; render();
+  try {
+    await hostRoom(sv.S.code, true);
+    ROLE = "host"; ME = sv.me; S = sv.S;
+    S.players.forEach(p => p.on = p.id === ME);
+    commit();
+  } catch (e) { U.screen = "home"; render(); toast(e.message); }
+}
+async function saveKey() {
+  const k = String(U.drafts.ytkey ?? Music.key).trim();
+  if (!/^[\w-]{20,60}$/.test(k)) { U.keyMsg = { ok: false, text: "That doesn't look like an API key. They start with AIza and are about 39 characters." }; render(); return; }
+  U.keyMsg = { ok: true, text: "Testing…" }; render();
+  try {
+    await ytFetch("videos", { part: "id", id: "9bZkp7q19f0" }, k);   // costs 1 unit of the daily quota
+    Music.key = k; store.set("rewind-ytkey", k); delete U.drafts.ytkey;
+    U.keyMsg = { ok: true, text: "Connected! Songs will play on this phone." };
+    if (Music.st === "nokey" || Music.st === "error") Music.song = null;   // look the current song up again
+  } catch (e) { U.keyMsg = { ok: false, text: e.message }; }
+  render();
+}
+
+document.addEventListener("input", e => {
+  const t = e.target; if (!t.id) return;
+  if (t.id === "joincode") t.value = t.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
+  if (t.id === "yearcall") t.value = t.value.replace(/\D/g, "").slice(0, 4);
+  U.drafts[t.id] = t.value;
+});
+document.addEventListener("change", e => { if (/^tn-[01]$/.test(e.target.id || "")) commitTeamNames(); });
+document.addEventListener("keydown", e => {
+  if (e.key !== "Enter" || !e.target.id) return;
+  const id = e.target.id;
+  if (/^tn-[01]$/.test(id)) { e.target.blur(); return; }
+  if (id === "newname") addName();
+  else if (id === "hostname") createRoom();
+  else if (id === "joincode" || id === "joinname") handle("joinRoom");
+  else if (id === "yearcall") handle("lock");
+  else if (id === "ytkey") handle("keySave");
+});
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-a]"); if (!el || el.disabled) return;
+  if (el.dataset.a === "scrim" && e.target !== el) return;
+  handle(el.dataset.a, el.dataset.v, el);
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && U.sheet) { U.sheet = null; render(); } });
+
+function ask(text, yes, then, v) { U.sheet = { k: "ask", text, yes, then, v }; render(); }
+function handle(a, v, el) {
+  switch (a) {
+    /* ---- local navigation ---- */
+    case "home": U.conn = (U.conn || 0) + 1; U.screen = "home"; U.err = ""; render(); scrollTo(0, 0); return;
+    case "pick": U.pick = v; U.screen = "mode"; U.err = ""; render(); scrollTo(0, 0); return;
+    case "goSetup": U.screen = "setup"; render(); scrollTo(0, 0); return;
+    case "goHost": U.screen = "host"; U.err = ""; render(); scrollTo(0, 0); return;
+    case "goJoin": U.screen = "join"; U.err = ""; render(); return;
+    case "addName": addName(); return;
+    case "tnRoll": {
+      const names = drawTeamNames([0, 1].map(teamName));
+      delete U.drafts["tn-0"]; delete U.drafts["tn-1"];
+      if (S) act({ type: "teamNames", val: names });
+      else { U.teamNames = names; store.set("rewind-teamnames", names); render(); }
+      return;
+    }
+    case "rmName": U.pp = U.pp.filter(p => p.id !== v); render(); return;
+    case "shuffleTeams": if (!S) { splitTeams(U.pp); render(); } else act({ type: "shuffleTeams" }); return;
+    case "swapTeam": { const p = U.pp.find(p => p.id === v); if (p) p.team = p.team ? 0 : 1; render(); return; }
+    case "startPass": {
+      if (startProblem(U.pick, U.sets[U.pick], U.pp)) return;
+      commitTeamNames();
+      ROLE = "pass"; ME = null;
+      S = { v: 0, play: "pass", code: null, mode: U.pick, hostId: null, stage: "lobby", sets: JSON.parse(JSON.stringify(U.sets)), teamNames: U.teamNames.slice(),
+            players: U.pp.map(p => ({ id: p.id, name: p.name, team: p.team || 0, on: true })), g: null };
+      startGame(); commit(); scrollTo(0, 0); return;
+    }
+    case "createRoom": createRoom(); return;
+    case "joinRoom": {
+      const code = String(U.drafts.joincode ?? U.joinCode).toUpperCase(), name = cleanName(U.drafts.joinname ?? U.name);
+      if (code.length !== 4) { U.err = "Room codes are 4 letters."; render(); return; }
+      if (!name) { U.err = "Enter your name."; render(); return; }
+      U.joinCode = code; U.name = name; store.set("rewind-name", name);
+      doJoin(code, name); return;
+    }
+    case "resume": resume(); return;
+    case "reconnect": reconnect(false); return;
+    case "share": share(); return;
+    case "rules": U.sheet = { k: "rules", mode: (S && S.mode) || U.pick || "kpop" }; render(); return;
+    case "menu": U.sheet = { k: "menu" }; render(); return;
+    case "lines": U.sheet = { k: "lines" }; render(); return;
+    case "modePick": U.sheet = { k: "modes" }; render(); return;
+    case "close": case "scrim": U.sheet = null; U.keyMsg = null; render(); return;
+    case "leave": ask("Leave this room?", "Leave", "yesLeave"); return;
+    case "closeRoom": ask("Close the room for everyone?", "Close room", "yesClose"); return;
+    case "endPass": ask("End this game?", "End game", "yesEnd"); return;
+    case "yesLeave": case "yesClose": goHome(); return;
+    case "yesEnd": { const k = S.mode; goHome(); U.pick = k; U.screen = "mode"; render(); return; }
+    case "changeGame": goHome(); return;
+
+    /* ---- music (this phone only) ---- */
+    case "musicSetup": U.keyMsg = null; U.sheet = { k: "music" }; render(); return;
+    case "keySave": saveKey(); return;
+    case "keyClear": Music.key = ""; store.del("rewind-ytkey"); delete U.drafts.ytkey; U.keyMsg = null; render(); return;
+    case "forgetVids": Music.cache = {}; saveCache(); toast("Forgot saved videos"); render(); return;
+    case "mToggle": musicToggle(); return;
+    case "mReplay": musicReplay(); return;
+    case "mRetry": if (Music.ck) { delete Music.cache[Music.ck]; saveCache(); } Music.song = null; render(); return;
+    case "flipOn": armFlip(); return;
+    case "ytm": U.sheet = { k: "ytm" }; render(); return;
+    case "alts": U.sheet = { k: "alts" }; render(); return;
+    case "useAlt": {
+      const c = Music.cache[Music.ck], alt = c && c.alts.find(x => x.id === v);
+      U.sheet = null;
+      if (alt && Music.ready) { c.id = alt.id; c.d = alt.d; saveCache(); cue(alt, true); }
+      render(); return;
+    }
+
+    /* ---- pass-mode settings before a game exists ---- */
+    case "set":
+      if (!S) {
+        const val = coerce(el.dataset.k, v); if (val === undefined) return;
+        U.sets[U.pick][el.dataset.k] = val; store.set("rewind-sets", U.sets); render(); return;
+      }
+      act({ type: "set", k: el.dataset.k, v }); return;
+    case "era":
+      if (!S) {
+        const set = U.sets[U.pick];
+        if (set.eras.includes(v)) { if (set.eras.length > 1) set.eras = set.eras.filter(e => e !== v); else toast("Keep at least one era"); }
+        else set.eras = MODES[U.pick].eras.map(e => e[0]).filter(e => e === v || set.eras.includes(e));
+        store.set("rewind-sets", U.sets); render(); return;
+      }
+      act({ type: "era", v }); return;
+
+    /* ---- a turn ---- */
+    case "goPlace": U.placing = turnKey(S.g); render(); scrollTo(0, 0); return;
+    case "aim": {
+      const g = S.g, p = Number(v);
+      if (ROLE === "guest") { g.aim = p; render(); }     // show the pick right away; the host's copy follows
+      if (U.yrOn) {
+        const [lo, hi] = yearRange(g, p), y = Number(U.drafts.yearcall);
+        if (!(y >= lo && y <= hi)) U.drafts.yearcall = String(Math.round((lo + hi) / 2));
+      }
+      act({ type: "aim", v: p }); return;
+    }
+    case "yrOn": {
+      const [lo, hi] = yearRange(S.g, S.g.aim);
+      U.yrOn = true; U.drafts.yearcall = String(Math.round((lo + hi) / 2)); render();
+      const el2 = $("#yearcall"); if (el2) el2.focus({ preventScroll: true });
+      return;
+    }
+    case "yrOff": U.yrOn = false; delete U.drafts.yearcall; render(); return;
+    case "yr": {
+      const [lo, hi] = yearRange(S.g, S.g.aim), cur = Number(U.drafts.yearcall);
+      U.drafts.yearcall = String(clamp((Number.isInteger(cur) && cur ? cur : Math.round((lo + hi) / 2)) + Number(v), lo, hi)); render(); return;
+    }
+    case "lock": {
+      const g = S.g; if (!g || g.aim == null || g.phase !== "listen") return;
+      let year = null;
+      if (U.yrOn && g.bonus) {
+        const [lo, hi] = yearRange(g, g.aim), y = Number(U.drafts.yearcall);
+        if (!Number.isInteger(y) || y < lo || y > hi) { toast(`Pick a year from ${lo} to ${hi}, or tap × to skip the bonus`); return; }
+        year = y;
+      }
+      act({ type: "place", year }); scrollTo(0, 0); return;
+    }
+    case "skip": U.sheet = null; ask("Skip this song? Nobody loses anything.", "Skip song", "yesSkip"); return;
+    case "yesSkip": U.sheet = null; act({ type: "skip" }); return;
+
+    /* ---- game actions (go through the host) ---- */
+    case "setMode": U.sheet = null; act({ type: "setMode", v }); return;
+    case "drop": ask(`Remove ${nm(v)} from this game?`, "Remove", "yesDrop", v); return;
+    case "yesDrop": U.sheet = null; act({ type: "drop", v }); return;
+    case "lobby": U.sheet = null; act({ type: "lobby" }); return;
+    case "next": case "again": case "start": act({ type: a, v }); scrollTo(0, 0); return;
+    default: act({ type: a, v });
+  }
+}
+
+/* ================= boot ================= */
+// test hook: lets automated checks read state (harmless in normal play)
+window.__rewind = { get S() { return S; }, get ME() { return ME; }, get ROLE() { return ROLE; }, Music, Flip };
+render();
+// reloaded a tab that was already in this room? slip straight back in
+if (U.joinCode && tabStore.get("rewind-pid-" + U.joinCode) && U.name) doJoin(U.joinCode, U.name);
+})();
+</script>
+</body>
+</html>
