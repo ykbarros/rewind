@@ -1554,9 +1554,23 @@ function musicStop() {
   Music.token++; Music.song = null; Music.vid = null; Music.st = "idle"; Music.sig = ""; stopTick();
   if (Music.ready) { try { Music.player.stopVideo(); } catch (e) {} }
 }
+// keep the music phone's screen on during a game, so a face-down phone doesn't lock and stop the song
+const Wake = { lock: null, want: false };
+function wakeSync(want) {
+  Wake.want = want;
+  if (want && !Wake.lock && navigator.wakeLock && document.visibilityState === "visible") {
+    Wake.lock = "pending";
+    navigator.wakeLock.request("screen").then(l => {
+      Wake.lock = l; l.addEventListener("release", () => { Wake.lock = null; });
+      if (!Wake.want) l.release().catch(() => {});
+    }).catch(() => { Wake.lock = null; });
+  } else if (!want && Wake.lock && Wake.lock !== "pending") { Wake.lock.release().catch(() => {}); Wake.lock = null; }
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") wakeSync(Wake.want); });
 function musicSync() {
   const box = $("#ytbox");
   const live = S && S.stage === "play" && ROLE !== "guest" && S.g && S.g.cur != null;
+  wakeSync(!!live);
   if (!live) { if (Music.song) musicStop(); box.classList.remove("show"); return; }
   const id = S.g.type + ":" + S.g.cur;
   if (Music.song !== id) prepare(S.g.type, S.g.cur);
